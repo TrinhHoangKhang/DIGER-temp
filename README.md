@@ -1,6 +1,12 @@
-# DIGER: Differentiable Semantic ID for Generative Recommendation
+# DIGER: Differentiable Semantic ID for Generative Recommendation 
 
 This work has been **accepted as a full paper** at **SIGIR 2026**.
+
+![SID](https://img.shields.io/badge/Task-SID-red) 
+![Generative recommendation](https://img.shields.io/badge/Task-Generative--recommendation-red) 
+<a href="https://arxiv.org/abs/2601.19711" alt="arXiv"><img src="https://img.shields.io/badge/arXiv-2601.19711-FAA41F.svg?style=flat" /></a>
+<a href="https://mp.weixin.qq.com/s/Cs2kwRR0U94GyT5h7hkldg" alt="中文博客"><img src="https://img.shields.io/badge/博客-新智元-orange.svg?style=flat" /></a> 
+
 
 ## Overview
 
@@ -130,11 +136,13 @@ Model checkpoints are saved to `./myckpt/<dataset>/` including:
 - `best_model.pth`: Best model based on validation metric
 - Training statistics and metrics
 
-### Metrics
-
-The model is evaluated on:
-
--  Recall@5, Recall@10
-- NDCG@5, NDCG@10
-
-Validation metric: NDCG@10
+## Citation
+If you find our paper useful in your work, please cite our paper as:
+```
+@article{fu2026differentiable,
+  title={Differentiable Semantic ID for Generative Recommendation},
+  author={Fu, Junchen and Ge, Xuri and Karatzoglou, Alexandros and Arapakis, Ioannis and Verberne, Suzan and Jose, Joemon M and Ren, Zhaochun},
+  journal={arXiv preprint arXiv:2601.19711},
+  year={2026}
+}
+```
