@@ -157,9 +157,17 @@ Training logs are written to `logs/<dataset>/`; stdout mirrors are written to `r
 
 The paper reports these metrics (R@5/R@10/N@5/N@10):
 
-- Beauty: FrqUD 0.0440/0.0683/0.0294/0.0372; SDUD 0.0442/0.0657/0.0292/0.0361; SDUD+FrqUD 0.0439/0.0696/0.0293/0.0376
-- Instruments: FrqUD 0.0915/0.1138/0.0772/0.0844; SDUD 0.0905/0.1124/0.0753/0.0823; SDUD+FrqUD 0.0907/0.1127/0.0758/0.0829
-- Yelp: FrqUD 0.0266/0.0432/0.0173/0.0227; SDUD 0.0267/0.0439/0.0171/0.0227; SDUD+FrqUD 0.0273/0.0437/0.0175/0.0227
+| Dataset | Variant | R@5 | R@10 | N@5 | N@10 |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Beauty | DIGER (FrqUD) | 0.0440 | 0.0683 | 0.0294 | 0.0372 |
+| Beauty | DIGER (SDUD) | 0.0442 | 0.0657 | 0.0292 | 0.0361 |
+| Beauty | DIGER (SDUD+FrqUD) | 0.0439 | 0.0696 | 0.0293 | 0.0376 |
+| Instruments | DIGER (FrqUD) | 0.0915 | 0.1138 | 0.0772 | 0.0844 |
+| Instruments | DIGER (SDUD) | 0.0905 | 0.1124 | 0.0753 | 0.0823 |
+| Instruments | DIGER (SDUD+FrqUD) | 0.0907 | 0.1127 | 0.0758 | 0.0829 |
+| Yelp | DIGER (FrqUD) | 0.0266 | 0.0432 | 0.0173 | 0.0227 |
+| Yelp | DIGER (SDUD) | 0.0267 | 0.0439 | 0.0171 | 0.0227 |
+| Yelp | DIGER (SDUD+FrqUD) | 0.0273 | 0.0437 | 0.0175 | 0.0227 |
 
 After training, compare the newest matching logs with the paper targets:
 
