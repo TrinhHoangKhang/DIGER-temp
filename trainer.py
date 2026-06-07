@@ -21,8 +21,8 @@ from vq import AutoSigmaGumbel, AutoSigmaGaussian, AutoSigmaSimple
 from collections import defaultdict
 from logging import getLogger
 init(autoreset=True)
-    
-    
+
+
 class Trainer(object):
     def __init__(self, config, model_rec: Model, model_id, accelerator, train_data=None,
                  valid_data=None, test_data=None, eos_token_id=None):
@@ -30,7 +30,7 @@ class Trainer(object):
         self.model_rec = model_rec
         self.model_id = model_id
         self.logger = getLogger()
-        
+
         self.eos_token_id = eos_token_id
         self.pad_token_id = 0
         self.code_num = config["code_num"]
@@ -46,11 +46,11 @@ class Trainer(object):
         self.save_path = config["save_path"]
         ensure_dir(self.save_path)
 
-        # Additional configs for loss computation (kept for code compatibility)
-        self.sim = config.get('sim', 'cos')  # Similarity metric for contrastive loss
-        self.alpha = config.get('alpha', 1)  # Weight for commitment loss
-        self.loss_type = config.get('loss_type', 'mse')  # Loss type for VQ
-        self.tau = config.get('tau', 0.07)  # Temperature for contrastive loss
+                                                                               
+        self.sim = config.get('sim', 'cos')                                          
+        self.alpha = config.get('alpha', 1)                              
+        self.loss_type = config.get('loss_type', 'mse')                    
+        self.tau = config.get('tau', 0.07)                                    
 
         self.accelerator = accelerator
 
@@ -60,7 +60,7 @@ class Trainer(object):
         self.all_item_code = None
         self.model_rec.device = self.device
 
-        # Track global training step for tau annealing
+                                                      
         self.global_step = 0
 
         self.all_metrics = config["metrics"].split(",")
@@ -79,22 +79,22 @@ class Trainer(object):
 
         self.max_steps = self.get_train_steps()
         self.warmup_steps = config["warmup_steps"]
-        
-        # IMPORTANT: Set parameter trainable status BEFORE creating optimizer
-        # Control whether to freeze semantic_embedding via config flag
+
+                                                                             
+                                                                      
         freeze_semantic_embedding = bool(config.get('freeze_semantic_embedding', True))
 
-        # Unfreeze all recommender model parameters first
+                                                         
         for param in model_rec.parameters():
             param.requires_grad = True
 
-        # Optionally freeze semantic_embedding (pretrained item embeddings)
+                                                                           
         if freeze_semantic_embedding:
             semantic_emb_name = 'semantic_embedding'
             for name, param in model_rec.named_parameters():
                 if name.startswith(semantic_emb_name):
                     param.requires_grad = False
-        
+
         self.rec_optimizer = self._build_optimizer(model_rec, self.lr_rec, self.weight_decay)
 
         if self.lr_scheduler_type == "linear":
@@ -121,21 +121,19 @@ class Trainer(object):
                                  self.model_id, self.train_data, self.valid_data, self.test_data)
 
     def _count_parameters(self, model, model_name="Model"):
-        """Count total and trainable parameters in a model"""
         total_params = sum(p.numel() for p in model.parameters())
         trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
         frozen_params = total_params - trainable_params
-        
+
         self.log(f"========== {model_name} Parameters ==========")
         self.log(f"Total parameters: {total_params:,}")
         self.log(f"Trainable parameters: {trainable_params:,} ({100 * trainable_params / total_params:.2f}%)")
         self.log(f"Frozen parameters: {frozen_params:,} ({100 * frozen_params / total_params:.2f}%)")
         self.log(f"=" * 50)
-        
+
         return total_params, trainable_params
 
     def _count_module_parameters(self, model, module_name):
-        """Count parameters in a specific module"""
         try:
             module = getattr(model, module_name, None)
             if module is not None:
@@ -175,12 +173,11 @@ class Trainer(object):
             )
             optimizer = optim.Adam(params, lr=lr)
         return optimizer
-    
+
     def _build_optimizer_from_groups(self, param_groups, weight_decay):
-        """Build optimizer from parameter groups with different learning rates."""
         learner = self.learner
-        
-        # Add weight_decay to all groups if not specified
+
+                                                         
         for group in param_groups:
             if 'weight_decay' not in group:
                 group['weight_decay'] = weight_decay
@@ -221,13 +218,13 @@ class Trainer(object):
 
     @staticmethod
     def compute_discrete_contrastive_loss_kl(x_logits, y_logits):
-        # kl loss
+                 
         code_num = x_logits.size(-1)
         x_logits = F.log_softmax(x_logits.reshape(-1, code_num), dim=-1)
         y_logits = F.log_softmax(y_logits.reshape(-1, code_num), dim=-1)
         loss = F.kl_div(x_logits, y_logits, reduction='batchmean', log_target=True)
         return loss
-                                          
+
     @staticmethod
     def compute_contrastive_loss(query_embeds, semantic_embeds, temperature=0.07, sim="cos", gathered=True):
         if gathered:
@@ -247,7 +244,7 @@ class Trainer(object):
 
         co_loss = F.cross_entropy(similarities, labels)
         return co_loss
-    
+
     @staticmethod
     def get_unique_index(inputs):
         unique_value = torch.unique(inputs).to(inputs.device)
@@ -256,7 +253,7 @@ class Trainer(object):
             unique_index[i] = torch.argwhere(inputs == value).flatten()[0]
         unique_index = unique_index.to(inputs.device)
         return unique_index
-        
+
     def get_train_steps(self, epochs=None):
         len_dataloader = len(self.train_data)
         num_update_steps_per_epoch = len_dataloader // self.gradient_accumulation_steps
@@ -270,10 +267,10 @@ class Trainer(object):
     def _train_epoch_rec(self, epoch_idx, loss_w, freeze_id=False, verbose=True):
 
         self.model_rec.train()
-        # Enable training for model_id (RQ-VAE) for joint optimization training
+                                                                       
         self.model_id.train()
-        
-        # Reset adaptive selection statistics at the start of each epoch
+
+                                                                        
         if dist.is_initialized():
             self.model_id.module.reset_adaptive_selection_stats()
         else:
@@ -293,11 +290,11 @@ class Trainer(object):
             with self.accelerator.accumulate(self.model_rec):
 
                 total_num += 1
-                
+
                 self.rec_optimizer.zero_grad()
                 if hasattr(self, 'id_optimizer'):
                     self.id_optimizer.zero_grad()
-                
+
                 input_ids = batch['input_ids'].to(self.device)
                 attention_mask = batch["attention_mask"].to(self.device)
                 targets = batch["targets"].to(self.device)
@@ -305,202 +302,215 @@ class Trainer(object):
                 B = input_ids.size(0)
                 input_ids = self.all_item_code[input_ids].clone().detach().reshape(B, -1)
                 labels = self.all_item_code[targets].clone().detach().reshape(B, -1)
-                attention_mask = (input_ids != -1).bool() 
-                
+                attention_mask = (input_ids != -1).bool()
+
                 target_flatten = targets.flatten()
                 if dist.is_initialized():
                     target_semantic_embs = self.model_rec.module.semantic_embedding(target_flatten)
                 else:
                     target_semantic_embs = self.model_rec.semantic_embedding(target_flatten)
-                
-                # ============================================================
-                # NEW: Latent-space reconstruction (no decoder)
-                # ============================================================
-                # 1. Encode to latent space z
+
+                                                                              
+                                                               
+                                                   
+                                                                              
+                                             
                 if dist.is_initialized():
-                    z = self.model_id.module.encoder(target_semantic_embs)  # [B, e_dim]
+                    z = self.model_id.module.encoder(target_semantic_embs)              
                 else:
-                    z = self.model_id.encoder(target_semantic_embs)          # [B, e_dim]
-                
-                # 2. Quantize in latent space (with Gumbel-Softmax for gradient flow)
+                    z = self.model_id.encoder(target_semantic_embs)                      
+
+                                                                                     
+                                                            
+                                                           
+                                                                
                 use_gumbel = self.config.get('use_gumbel', not freeze_id)
-                
-                # Call RQVAE forward (encoder is already called, so we call rq directly)
-                # But we need to manually compute parameters for rq()
+
+                                                                                        
+                                                                     
                 if dist.is_initialized():
                     stop_gumbel_epoch = self.model_id.module.stop_gumbel_sampling_epoch
                     use_indicator_ste = self.model_id.module.use_indicator_ste
-                    # Get current tau (with annealing if enabled)
+                                                                 
                     current_tau = self.model_id.module.get_current_tau(self.global_step)
                 else:
                     stop_gumbel_epoch = self.model_id.stop_gumbel_sampling_epoch
                     use_indicator_ste = self.model_id.use_indicator_ste
-                    # Get current tau (with annealing if enabled)
+                                                                 
                     current_tau = self.model_id.get_current_tau(self.global_step)
 
                 use_gumbel_sampling = (stop_gumbel_epoch == 0) or (epoch_idx < stop_gumbel_epoch)
 
                 if dist.is_initialized():
-                    z_hat, vq_loss, target_indices_sampled, target_indices_argmax, _, target_code_logits, balance_loss, gate_reg_loss, sigma = \
+                    z_hat, vq_loss, _, _, target_code_logits, balance_loss, gate_reg_loss, sigma = \
                         self.model_id.module.rq(z, use_gumbel=use_gumbel, tau=current_tau,
                                                use_indicator_ste=use_indicator_ste,
                                                use_gumbel_sampling=use_gumbel_sampling,
                                                current_epoch=epoch_idx)
                 else:
-                    z_hat, vq_loss, target_indices_sampled, target_indices_argmax, _, target_code_logits, balance_loss, gate_reg_loss, sigma = \
+                    z_hat, vq_loss, _, _, target_code_logits, balance_loss, gate_reg_loss, sigma = \
                         self.model_id.rq(z, use_gumbel=use_gumbel, tau=current_tau,
                                         use_indicator_ste=use_indicator_ste,
                                         use_gumbel_sampling=use_gumbel_sampling,
                                         current_epoch=epoch_idx)
-                
-                # 3. Latent space reconstruction loss: ||z_hat - z||^2
+
+                                                                      
+                                                            
                 glq_recon_loss = F.mse_loss(z_hat, z)
-                
-                # 4. QSLoss: Quantization-Semantic Loss (NEW IMPLEMENTATION)
 
-                # Note: get_indices returns [B, num_rq_layers] (e.g., [B, 3])
-                # But code_length=4 includes conflict resolution position
+                                                                            
+                                                                                
+                                                           
+
+                                                                                  
+                                                                             
+                                                                         
                 if dist.is_initialized():
-                    token_indices = self.model_id.module.get_indices(target_semantic_embs)  # [B, num_rq_layers]
+                    token_indices = self.model_id.module.get_indices(target_semantic_embs)                      
                 else:
-                    token_indices = self.model_id.get_indices(target_semantic_embs)  # [B, num_rq_layers]
+                    token_indices = self.model_id.get_indices(target_semantic_embs)                      
 
-                # Only use the RQ layer indices (first num_rq_layers positions)
-                # token_indices shape: [B, num_rq_layers] where num_rq_layers=3
-                num_rq_layers = token_indices.shape[1]  # 3
+                                                                
+                                                                               
+                                                                               
+                num_rq_layers = token_indices.shape[1]     
                 token_embs_list = []
                 for i in range(num_rq_layers):
                     if dist.is_initialized():
-                        emb = self.model_rec.module.token_embeddings[i](token_indices[:, i])  # [B, hidden_size]
+                        emb = self.model_rec.module.token_embeddings[i](token_indices[:, i])                    
                     else:
-                        emb = self.model_rec.token_embeddings[i](token_indices[:, i])  # [B, hidden_size]
+                        emb = self.model_rec.token_embeddings[i](token_indices[:, i])                    
                     token_embs_list.append(emb)
 
-                # Average pooling over RQ positions to get single representation
-                token_embs = torch.stack(token_embs_list, dim=1).mean(dim=1)  # [B, hidden_size]
+                                                                                
+                token_embs = torch.stack(token_embs_list, dim=1).mean(dim=1)                    
 
-                # Step 4.3: Project tokenizer's latent z to token embedding space
+                                                                                 
+                                                                    
                 if dist.is_initialized():
-                    z_projected = self.model_rec.module.qs_projector(z)  # [B, e_dim] -> [B, hidden_size]
+                    z_projected = self.model_rec.module.qs_projector(z)                                  
                 else:
-                    z_projected = self.model_rec.qs_projector(z)  # [B, e_dim] -> [B, hidden_size]
+                    z_projected = self.model_rec.qs_projector(z)                                  
 
-                # Step 4.4: Bidirectional alignment loss
+                                                        
+                                                                                          
+                                                                                            
                 qs_beta = self.config.get('qs_beta', 0.25)
                 qs_loss = F.mse_loss(z_projected, token_embs.detach()) + \
                           qs_beta * F.mse_loss(z_projected.detach(), token_embs)
-                
-                # 5. Final GLQ loss = latent_recon + vq_loss
-                recon_loss = glq_recon_loss
-                
-                # Forward pass for recommender model
+
+                                                            
+                                                              
+                recon_loss = glq_recon_loss                 
+
+                                                    
                 outputs = self.model_rec(input_ids=input_ids,
                                          attention_mask=attention_mask,
                                          labels=labels)
-          
-                logits = outputs.logits  # (batch, code_len, code_num)
-                
-                # Code prediction loss
+
+                logits = outputs.logits                               
+
+                                      
                 code_loss = F.cross_entropy(logits.reshape(-1, self.code_num), labels.detach().reshape(-1))
 
-                # NEW: Apply Uncertainty-Weighted Loss if learnable sigma is enabled
+                                                                                    
                 if sigma is not None:
-                    # Check for Cosine Annealing Strategy (Epoch-based)
+                                                                       
                     use_cosine_annealing = self.config.get('use_cosine_annealing', False)
-                    
+
                     if use_cosine_annealing:
-                        # Cosine Annealing: std decays from initial_std to near-0 based on epoch
-                        # Formula: std_t = 0.5 * initial_std * (1 + cos(pi * t / T))
-                        # where t = current_epoch, T = max_epochs
-                        
-                        # CRITICAL: Ensure sigma is NOT learnable
-                        # Note: sigma here might be a computed tensor from forward pass, so we can't set requires_grad
-                        # Instead, we rely on .data.fill_() which modifies the underlying storage
-                        # To be extra safe, we can detach it if needed, but .data write is sufficient
-                        
+                                                                                                
+                                                                                    
+                                                                 
+
+                                                                 
+                                                                                                                      
+                                                                                                 
+                                                                                                     
+
                         initial_std = float(self.config.get('initial_std', 1.0))
                         current_epoch = self.global_step / max(1, self.max_steps) * self.epochs
                         T_max = self.epochs
-                        
-                        # Calculate target std using cosine schedule
+
+                                                                    
                         import math
                         cosine_factor = 0.5 * (1 + math.cos(math.pi * current_epoch / T_max))
                         target_std = initial_std * cosine_factor
-                        
-                        # Clamp to ensure it doesn't go below a tiny value (e.g., 1e-6)
+
+                                                                                       
                         target_std = max(1e-6, target_std)
-                        
-                        # Convert std to sigma: sigma = log2(std)
-                        # This is necessary because the model uses s = 2^sigma internally
+
+                                                                 
+                                                                                         
                         target_sigma = math.log2(target_std)
-                        
-                        # Force update the sigma parameter in the model
+
+                                                                       
                         sigma.data.fill_(target_sigma)
-                        
-                        # Use plain code loss (no uncertainty weighting) as requested
+
+                                                                                     
                         if self.global_step % 10 == 0 and self.accelerator.is_main_process:
-                            self.log(f"[Cosine Annealing] Epoch={current_epoch:.2f}/{T_max}, sigma={target_sigma:.4f}, std={target_std:.4f} (Fixed)")
+                            self.log(f"[Cosine Annealing] Epoch={current_epoch:.2f}/{T_max}, σ={target_sigma:.4f}, std={target_std:.4f} (Fixed)")
                     else:
-                        # Existing logic for learnable sigma or plain loss
+                                                                          
                         use_plain_code_loss = self.config.get('use_plain_code_loss', False)
                         use_simple_uncertainty_loss = self.config.get('use_simple_uncertainty_loss', False)
-                        
+
                         if use_plain_code_loss:
-                            # Use plain code_loss without uncertainty weighting (for ablation)
-                            # Still log sigma for monitoring
+                                                                                              
+                                                            
                             if self.global_step % 10 == 0 and self.accelerator.is_main_process:
                                 sigma_val = sigma.item()
                                 if use_simple_uncertainty_loss:
-                                    self.log(f"[Plain Loss] sigma={sigma_val:.4f} (direct), code_loss={code_loss.item():.4f}")
+                                    self.log(f"[Plain Loss] σ={sigma_val:.4f} (direct), code_loss={code_loss.item():.4f}")
                                 else:
-                                    self.log(f"[Plain Loss] sigma={sigma_val:.4f}, std≈{2**sigma_val:.4f}, code_loss={code_loss.item():.4f}")
+                                    self.log(f"[Plain Loss] σ={sigma_val:.4f}, std≈{2**sigma_val:.4f}, code_loss={code_loss.item():.4f}")
                         elif use_simple_uncertainty_loss:
-                            # NEW: Standard Deviation Uncertainty Decay (SDUD) with optional learnable/adaptive lambda
+                                                                                                  
                             original_code_loss = code_loss.item()
                             sigma_lambda = self.config.get('sigma_lambda', 0.5)
-                            
-                            # Get the AutoSigmaSimple module instance (assumes all RQ layers use the same module)
+
+                                                                                                                 
                             auto_sigma_module = None
                             if dist.is_initialized():
                                 auto_sigma_module = getattr(self.model_id.module.rq.vq_layers[0], 'auto_sigma_module', None)
                             else:
                                 auto_sigma_module = getattr(self.model_id.rq.vq_layers[0], 'auto_sigma_module', None)
-                            
+
                             if auto_sigma_module is not None and hasattr(auto_sigma_module, 'compute_uncertainty_loss'):
-                                # Use instance method (supports learnable/adaptive lambda)
+                                                                                          
                                 code_loss, actual_lambda = auto_sigma_module.compute_uncertainty_loss(
                                     code_loss, sigma, lambda_bias=sigma_lambda
                                 )
                             else:
-                                # Fallback to static method (backward compatibility)
+                                                                                    
                                 from vq import AutoSigmaSimple
                                 code_loss = AutoSigmaSimple.compute_uncertainty_loss(code_loss, sigma, lambda_bias=sigma_lambda)
                                 actual_lambda = sigma_lambda
-                            
+
                             if self.global_step % 10 == 0 and self.accelerator.is_main_process:
                                 sigma_val = sigma.item()
                                 lambda_val = actual_lambda if isinstance(actual_lambda, float) else actual_lambda.item()
                                 import math
-                                # Equilibrium: sigma = sqrt(L) - lambda
+                                                                       
                                 target_sigma = math.sqrt(max(0, original_code_loss)) - lambda_val
-                                
-                                # Check auto_lambda_mode
+
+                                                        
                                 auto_lambda_mode = self.config.get('auto_lambda_mode', 'fixed')
                                 if auto_lambda_mode == 'learnable':
-                                    self.log(f"[SDUD] sigma={sigma_val:.4f}, Loss={original_code_loss:.4f}, λ={lambda_val:.4f} (learnable), Target_sigma={target_sigma:.4f}")
+                                    self.log(f"[Simple Uncertainty] σ={sigma_val:.4f}, Loss={original_code_loss:.4f}, λ={lambda_val:.4f} (learnable), Target_σ={target_sigma:.4f}")
                                 elif auto_lambda_mode == 'adaptive':
                                     if auto_sigma_module is not None:
                                         loss_ema = auto_sigma_module.loss_ema.item()
-                                        self.log(f"[SDUD] sigma={sigma_val:.4f}, Loss={original_code_loss:.4f}, λ={lambda_val:.4f} (adaptive, EMA={loss_ema:.4f}), Target_sigma={target_sigma:.4f}")
+                                        self.log(f"[Simple Uncertainty] σ={sigma_val:.4f}, Loss={original_code_loss:.4f}, λ={lambda_val:.4f} (adaptive, EMA={loss_ema:.4f}), Target_σ={target_sigma:.4f}")
                                     else:
-                                        self.log(f"[SDUD] sigma={sigma_val:.4f}, Loss={original_code_loss:.4f}, λ={lambda_val:.4f} (adaptive), Target_sigma={target_sigma:.4f}")
+                                        self.log(f"[Simple Uncertainty] σ={sigma_val:.4f}, Loss={original_code_loss:.4f}, λ={lambda_val:.4f} (adaptive), Target_σ={target_sigma:.4f}")
                                 else:
-                                    self.log(f"[SDUD] sigma={sigma_val:.4f}, Loss={original_code_loss:.4f}, λ={lambda_val:.4f} (fixed), Target_sigma={target_sigma:.4f}")
+                                    self.log(f"[Simple Uncertainty] σ={sigma_val:.4f}, Loss={original_code_loss:.4f}, λ={lambda_val:.4f} (fixed), Target_σ={target_sigma:.4f}")
                         else:
-                            # Use uncertainty-weighted loss (default)
-                            original_code_loss = code_loss.item()  # Save for logging
+                                                                     
+                            original_code_loss = code_loss.item()                    
                             sigma_reg_weight = self.config.get('sigma_reg_weight', 1.0)
-                            # NEW: Configurable annealing parameters for different datasets
+                                                                                           
                             annealing_threshold = self.config.get('annealing_threshold', None)
                             annealing_slow_k = self.config.get('annealing_slow_k', None)
                             annealing_slow_c = self.config.get('annealing_slow_c', None)
@@ -514,29 +524,31 @@ class Trainer(object):
                                 annealing_fast_k=annealing_fast_k,
                                 annealing_fast_c=annealing_fast_c
                             )
-                            # Log sigma info for debugging
+                                                          
                             if self.global_step % 10 == 0 and self.accelerator.is_main_process:
-                                sigma_val = sigma.item()  # Can be negative now
-                                # Exponential annealing equilibrium: sigma = -0.589 + 1.298*ln(L_task)
+                                sigma_val = sigma.item()                       
+                                                                                                      
                                 import math
                                 equilibrium_sigma = -0.589 + 1.298 * math.log(max(0.1, original_code_loss))
-                                self.log(f"[Annealing] sigma={sigma_val:.4f}, Loss={original_code_loss:.4f}, Target_sigma={equilibrium_sigma:.4f}")
+                                self.log(f"[Annealing] σ={sigma_val:.4f}, Loss={original_code_loss:.4f}, Target_σ={equilibrium_sigma:.4f}")
 
-                # ============================================================
-                # ============================================================
+                                                                              
+                                                   
+                                                     
+                                                                              
 
                 losses = dict(
-                    code_loss=code_loss,
-                    recon_loss=recon_loss,
-                    vq_loss=vq_loss,            # VQ commitment loss
-                    qs_loss=qs_loss,
+                    code_loss=code_loss,                         
+                    recon_loss=recon_loss,                       
+                    vq_loss=vq_loss,                                
+                    qs_loss=qs_loss,                                      
                 )
 
-                # Add balance loss if available (only when using Gumbel-Softmax)
+                                                                                
                 if balance_loss is not None:
                     losses['balance_loss'] = balance_loss
-                
-                # Add gate regularization loss if available (only when using gate network)
+
+                                                                                          
                 if gate_reg_loss is not None:
                     losses['gate_loss'] = gate_reg_loss
 
@@ -550,44 +562,45 @@ class Trainer(object):
 
                 self.rec_optimizer.step()
                 self.rec_lr_scheduler.step()
-                # CRITICAL: Only update ID optimizer when NOT frozen
+                                                                    
                 if hasattr(self, 'id_optimizer') and not freeze_id:
-                    # NEW: Dynamic sigma learning rate adjustment
-                    # When in fast annealing stage (loss < 2.0), increase sigma lr by 10x
-                    # Only enabled when use_dynamic_sigma_lr is explicitly set to True
+                                                                 
+                                                                                         
+                                                                                      
                     use_dynamic_sigma_lr = self.config.get('use_dynamic_sigma_lr', False)
                     if use_dynamic_sigma_lr and hasattr(self, 'lr_sigma') and self.lr_sigma is not None:
-                        threshold_loss = 2.0  # Same as in vq.py
+                        threshold_loss = 2.0                    
                         current_code_loss = code_loss.item() if isinstance(code_loss, torch.Tensor) else code_loss
-                        
-                        # Check if we're in the fast annealing stage
+
+                                                                    
                         if current_code_loss < threshold_loss:
-                            # Fast stage: increase sigma lr by 10x
+                                                                  
                             sigma_lr_multiplier = 10.0
                         else:
-                            # Slow stage: use base lr
+                                                     
                             sigma_lr_multiplier = 1.0
-                        
-                        # Update learning rate for sigma parameter group
+
+                                                                        
                         for param_group in self.id_optimizer.param_groups:
-                            # Check if this is the sigma parameter group
-                            # (it should have the lr_sigma as base lr)
+                                                                        
+                                                                      
                             if abs(param_group['lr'] - self.lr_sigma) < 1e-8 or \
                                abs(param_group['lr'] - self.lr_sigma * 10.0) < 1e-8:
                                 param_group['lr'] = self.lr_sigma * sigma_lr_multiplier
-                        
-                        # Log lr adjustment (every 50 steps to avoid spam)
+
+                                                                          
                         if self.global_step % 50 == 0 and self.accelerator.is_main_process:
                             stage = "FAST" if current_code_loss < threshold_loss else "SLOW"
                             actual_sigma_lr = self.lr_sigma * sigma_lr_multiplier
-                            self.log(f"[Sigma LR] Stage={stage}, Loss={current_code_loss:.4f}, sigma_lr={actual_sigma_lr:.6f} ({sigma_lr_multiplier:.1f}x)")
-                    
+                            self.log(f"[Sigma LR] Stage={stage}, Loss={current_code_loss:.4f}, σ_lr={actual_sigma_lr:.6f} ({sigma_lr_multiplier:.1f}x)")
+
                     self.id_optimizer.step()
                     self.id_lr_scheduler.step()
 
-                # Increment global step for tau annealing
+                                                         
                 self.global_step += 1
 
+                           
                 code_loss_mean = self.accelerator.gather(code_loss).mean().item()
                 recon_loss_mean = self.accelerator.gather(recon_loss).mean().item()
                 vq_loss_mean = self.accelerator.gather(vq_loss).mean().item()
@@ -602,17 +615,17 @@ class Trainer(object):
                     qs_loss=qs_loss_mean,
                 )
 
-                # Add balance loss to statistics if available
+                                                             
                 if balance_loss is not None:
                     balance_loss_mean = self.accelerator.gather(balance_loss).mean().item()
                     loss['balance_loss'] = balance_loss_mean
-                
-                # Add gate loss to statistics if available
+
+                                                          
                 if gate_reg_loss is not None:
                     gate_loss_mean = self.accelerator.gather(gate_reg_loss).mean().item()
                     loss['gate_loss'] = gate_loss_mean
 
-                # Add sigma to statistics if available
+                                                      
                 if sigma is not None:
                     sigma_mean = self.accelerator.gather(sigma).mean().item()
                     loss['sigma'] = sigma_mean
@@ -623,11 +636,11 @@ class Trainer(object):
 
         for k in total_loss.keys():
             total_loss[k] = round(total_loss[k]/total_num, 4)
-                
+
         self.accelerator.wait_for_everyone()
-        
+
         return total_loss
-    
+
 
 
     def safe_save(self, epoch, code, prefix=''):
@@ -635,10 +648,10 @@ class Trainer(object):
         if self.accelerator.is_main_process:
             unwrap_model_rec = self.accelerator.unwrap_model(self.model_rec)
             unwrap_model_id = self.accelerator.unwrap_model(self.model_id)
-            
-            # Add prefix to filename if provided
+
+                                                
             filename = f'{prefix}_{epoch}' if prefix else str(epoch)
-            
+
             self.accelerator.save(unwrap_model_rec.state_dict(), f'{self.save_path}/{filename}.pt')
             self.accelerator.save(unwrap_model_id.state_dict(), f'{self.save_path}/{filename}.pt.rqvae')
             json.dump(code.cpu().tolist(), open(f'{self.save_path}/{filename}.code.json', 'w'))
@@ -649,28 +662,28 @@ class Trainer(object):
         return last_checkpoint
 
     def evaluate(self, outputs, labels):
-        batch_size, k, _ = outputs.shape  # Assuming outputs is [batch_size, 10, seq_len]
+        batch_size, k, _ = outputs.shape                                                 
         recall_at_1, recall_at_5, recall_at_10 = [], [], []
         ndcg_at_1, ndcg_at_5, ndcg_at_10 = [], [], []
 
         for i in range(batch_size):
-            label = labels[i].unsqueeze(0)  # [1, seq_len]
+            label = labels[i].unsqueeze(0)                
             out = outputs[i]
-                
-            matches = torch.all(torch.eq(out.unsqueeze(1), label.unsqueeze(0)), dim=2)  # [10, 1, seq_len] -> [10, 1]
-            matches = matches.any(dim=1).cpu().numpy()  # [10]
 
-            # Recall
+            matches = torch.all(torch.eq(out.unsqueeze(1), label.unsqueeze(0)), dim=2)                               
+            matches = matches.any(dim=1).cpu().numpy()        
+
+                    
             recall_at_1.append(matches[:1].sum() / 1.0)
-            recall_at_5.append(matches[:5].sum() / 1.0)  # Assuming each label has only 1 correct match.
+            recall_at_5.append(matches[:5].sum() / 1.0)                                                 
             recall_at_10.append(matches.sum() / 1.0)
 
-            # NDCG (binary relevance)
+                                     
             ndcg_at_1.append(ndcg_at_k(matches, 1))
             ndcg_at_5.append(ndcg_at_k(matches, 5))
             ndcg_at_10.append(ndcg_at_k(matches, 10))
 
-        # Calculate mean metrics
+                                
         metrics = {
             "recall@1": np.sum(recall_at_1),
             "recall@5": np.sum(recall_at_5),
@@ -693,10 +706,6 @@ class Trainer(object):
         return train_loss_output + "]"
 
     def train(self, verbose=True):
-        """
-        Joint optimization training: Train both recommender and RQ-VAE together.
-        Uses Gumbel-Softmax for differentiable code selection.
-        """
         stop = False
         cur_eval_step = 0
         self.best_score = 0
@@ -704,49 +713,48 @@ class Trainer(object):
         self.best_ckpt = None
         loss_w = defaultdict(int)
 
-        # Initialize item codes from RQ-VAE
+                                           
         all_item_code = self.get_code(epoch_idx=-1, verbose=verbose)
         self.all_item_code = torch.tensor(all_item_code).to(self.device)
 
-        # Enable joint optimization training mode
-        # Backward compatibility: also check for old 'end_to_end' key
-        joint_optimization = self.config.get('joint_optimization', self.config.get('end_to_end', False))
-        
-        if joint_optimization:
-            # Unfreeze all recommender model parameters first
+                                         
+        end_to_end = self.config.get('end_to_end', False)
+
+        if end_to_end:
+                                                             
             for param in self.model_rec.parameters():
                 param.requires_grad = True
-            
-            # Optionally freeze semantic_embedding
+
+                                                  
             freeze_semantic_embedding = bool(self.config.get('freeze_semantic_embedding', True))
             if freeze_semantic_embedding:
                 semantic_emb_name = 'module.semantic_embedding' if dist.is_initialized() else 'semantic_embedding'
                 for name, param in self.model_rec.named_parameters():
                     if name.startswith(semantic_emb_name):
                         param.requires_grad = False
-            
+
             self.log(f'[Training Mode] Recommender model unfrozen (semantic_embedding frozen)')
-            
-            # Unfreeze RQ-VAE for joint optimization training
+
+                                                     
             for param in self.model_id.parameters():
                 param.requires_grad = True
-            
-            # Freeze encoder/RQ if specified
+
+                                            
             freeze_id_encoder = self.config.get('freeze_id_encoder', False)
-            freeze_id_encoder_layers = self.config.get('freeze_id_encoder_layers', 0)  # Number of layers to freeze from bottom
+            freeze_id_encoder_layers = self.config.get('freeze_id_encoder_layers', 0)                                          
             freeze_rq = self.config.get('freeze_rq', False)
-            
+
             if freeze_id_encoder:
-                # If freeze_id_encoder_layers is set, freeze only the bottom N layers
-                # Otherwise, freeze all encoder layers (backward compatibility)
+                                                                                     
+                                                                               
                 if freeze_id_encoder_layers > 0:
-                    # Freeze bottom N layers (closest to RQ-VAE input)
-                    # MLPLayers structure: Dropout -> Linear -> (BN) -> (Activation) -> ...
-                    # We need to find Linear layers and freeze the first N layers
+                                                                      
+                                                                                           
+                                                                                 
                     encoder_modules = list(self.model_id.encoder.mlp_layers.children())
                     linear_layer_idx = 0
                     frozen_count = 0
-                    
+
                     for module in encoder_modules:
                         if isinstance(module, nn.Linear):
                             if linear_layer_idx < freeze_id_encoder_layers:
@@ -754,11 +762,11 @@ class Trainer(object):
                                     param.requires_grad = False
                                 frozen_count += 1
                             linear_layer_idx += 1
-                    
+
                     total_linear_layers = sum(1 for m in encoder_modules if isinstance(m, nn.Linear))
                     self.log(f'[Training Mode] ID tokenizer encoder: {frozen_count}/{total_linear_layers} layers FROZEN (bottom {freeze_id_encoder_layers} layers)')
                 else:
-                    # Freeze all encoder layers (original behavior)
+                                                                   
                     for param in self.model_id.encoder.parameters():
                         param.requires_grad = False
                     self.log(f'[Training Mode] ID tokenizer encoder FROZEN (all layers)')
@@ -766,22 +774,22 @@ class Trainer(object):
                 for param in self.model_id.rq.parameters():
                     param.requires_grad = False
                 self.log(f'[Training Mode] ID tokenizer RQ quantizer FROZEN')
-            
-            # Build optimizer for RQ-VAE
-            self.lr_id = self.config.get('lr_id', self.lr_rec * 0.1)  # Use smaller lr for RQ-VAE
-            
-            # NEW: Separate learning rate for sigma and lambda parameters
+
+                                        
+            self.lr_id = self.config.get('lr_id', self.lr_rec * 0.1)                             
+
+                                                                         
             self.lr_sigma = self.config.get('lr_sigma', None)
-            self.lr_lambda = self.config.get('lr_lambda', None)  # NEW: separate lr for lambda
+            self.lr_lambda = self.config.get('lr_lambda', None)                               
             use_separate_sigma_lr = self.lr_sigma is not None and self.config.get('use_learnable_sigma_gumbel', False)
             use_learnable_lambda = self.config.get('auto_lambda_mode', 'fixed') == 'learnable'
-            
+
             if use_separate_sigma_lr or (use_learnable_lambda and self.lr_lambda is not None):
-                # Separate sigma/lambda parameters from other RQ-VAE parameters
+                                                                               
                 sigma_params = []
                 lambda_params = []
                 other_params = []
-                
+
                 for name, param in self.model_id.named_parameters():
                     if param.requires_grad:
                         if 'lambda_param' in name.lower():
@@ -790,8 +798,8 @@ class Trainer(object):
                             sigma_params.append(param)
                         else:
                             other_params.append(param)
-                
-                # Create optimizer with parameter groups
+
+                                                        
                 param_groups = []
                 if len(other_params) > 0:
                     param_groups.append({'params': other_params, 'lr': self.lr_id})
@@ -800,12 +808,12 @@ class Trainer(object):
                 if len(lambda_params) > 0 and self.lr_lambda is not None:
                     param_groups.append({'params': lambda_params, 'lr': self.lr_lambda})
                 elif len(lambda_params) > 0:
-                    # If no separate lr_lambda specified, use lr_sigma or lr_id
+                                                                               
                     lambda_lr = self.lr_sigma if self.lr_sigma is not None else self.lr_id
                     param_groups.append({'params': lambda_params, 'lr': lambda_lr})
-                
+
                 self.id_optimizer = self._build_optimizer_from_groups(param_groups, self.weight_decay)
-                
+
                 self.log(f'[Training Mode] Using SEPARATE learning rates:')
                 self.log(f'  - RQ-VAE parameters: lr={self.lr_id}')
                 if len(sigma_params) > 0:
@@ -814,10 +822,10 @@ class Trainer(object):
                     lambda_lr = self.lr_lambda if self.lr_lambda is not None else (self.lr_sigma if self.lr_sigma is not None else self.lr_id)
                     self.log(f'  - Lambda parameters: lr={lambda_lr} ({len(lambda_params)} params)')
             else:
-                # Standard: all RQ-VAE parameters use the same learning rate
+                                                                            
                 self.id_optimizer = self._build_optimizer(self.model_id, self.lr_id, self.weight_decay)
-            
-            # Build scheduler for RQ-VAE
+
+                                        
             if self.lr_scheduler_type == "linear":
                 self.id_lr_scheduler = get_linear_schedule_with_warmup(optimizer=self.id_optimizer,
                                                                         num_warmup_steps=self.warmup_steps,
@@ -832,70 +840,70 @@ class Trainer(object):
                                 num_warmup_steps=self.warmup_steps,
                                 num_training_steps=self.max_steps,
                             )
-            
-            # Prepare RQ-VAE optimizer and scheduler with accelerator
+
+                                                                     
             self.id_optimizer, self.id_lr_scheduler = \
                 self.accelerator.prepare(self.id_optimizer, self.id_lr_scheduler)
-            
-            # Set loss weights for joint optimization training
+
+                                                      
             loss_w['code_loss'] = self.config.get('code_loss_weight', 1.0)
             loss_w['recon_loss'] = self.config.get('recon_loss_weight', 1.0)
             loss_w['vq_loss'] = self.config.get('vq_loss_weight', 0.25)
-            loss_w['qs_loss'] = self.config.get('qs_loss_weight', 0.1)
-            loss_w['balance_loss'] = self.config.get('balance_loss_weight', 0.1)
-            loss_w['gate_loss'] = self.config.get('gate_loss_weight', 0.1)
+            loss_w['qs_loss'] = self.config.get('qs_loss_weight', 0.1)             
+            loss_w['balance_loss'] = self.config.get('balance_loss_weight', 0.1)                            
+            loss_w['gate_loss'] = self.config.get('gate_loss_weight', 0.1)                        
             loss_w['kl_loss'] = self.config.get('kl_loss_weight', 0.0)
             loss_w['dec_cl_loss'] = self.config.get('dec_cl_loss_weight', 0.0)
 
-            self.log(f'[Training Mode] Joint optimization training enabled')
+            self.log(f'[Training Mode] End-to-end training enabled')
             self.log(f'[Training Mode] Loss weights: {dict(loss_w)}')
         else:
-            # Unfreeze all recommender model parameters first
+                                                             
             for param in self.model_rec.parameters():
                 param.requires_grad = True
-            
-            # Optionally freeze semantic_embedding
+
+                                                  
             freeze_semantic_embedding = bool(self.config.get('freeze_semantic_embedding', True))
             if freeze_semantic_embedding:
                 semantic_emb_name = 'module.semantic_embedding' if dist.is_initialized() else 'semantic_embedding'
                 for name, param in self.model_rec.named_parameters():
                     if name.startswith(semantic_emb_name):
                         param.requires_grad = False
-            
+
             self.log(f'[Training Mode] Recommender model unfrozen (semantic_embedding frozen)')
 
-            # Freeze RQ-VAE completely
+                                      
             for param in self.model_id.parameters():
                 param.requires_grad = False
 
-            # Set loss weights: only code_loss
+                                              
             loss_w['code_loss'] = 1
             loss_w['vq_loss'] = 0
-            loss_w['qs_loss'] = 0
-            loss_w['balance_loss'] = 0
-            loss_w['gate_loss'] = 0
+            loss_w['qs_loss'] = 0                      
+            loss_w['balance_loss'] = 0                            
+            loss_w['gate_loss'] = 0                         
             loss_w['kl_loss'] = 0
             loss_w['dec_cl_loss'] = 0
             loss_w['recon_loss'] = 0
 
             self.log(f'[Training Mode] Frozen RQ-VAE mode (original)')
 
-        # Print parameter statistics
+                                    
         self.log("")
         self._count_parameters(self.model_rec, "Recommender Model")
         self._count_parameters(self.model_id, "ID Tokenizer (RQ-VAE)")
-        
-        # Print detailed breakdown for ID tokenizer
+
+                                                   
         self.log("ID Tokenizer Module Breakdown:")
         self._count_module_parameters(self.model_id, "encoder")
         self._count_module_parameters(self.model_id, "rq")
-        
-        # Check for learnable sigma parameters
+
+                                              
         if dist.is_initialized():
             model_id_unwrapped = self.model_id.module
         else:
             model_id_unwrapped = self.model_id
-        
+
         sigma_params = [name for name, p in model_id_unwrapped.named_parameters() if 'sigma' in name.lower()]
         if sigma_params:
             self.log("")
@@ -904,16 +912,16 @@ class Trainer(object):
                 param = dict(model_id_unwrapped.named_parameters())[name]
                 sigma_val = param.data.item()
                 s_val = 2 ** sigma_val
-                self.log(f"  {name}: sigma={sigma_val:.6f}, requires_grad={param.requires_grad}")
-                self.log(f"    -> Noise scale: s = 2^sigma = 2^{sigma_val:.3f} = {s_val:.6f}")
+                self.log(f"  {name}: σ={sigma_val:.6f}, requires_grad={param.requires_grad}")
+                self.log(f"    -> Noise scale: s = 2^σ = 2^{sigma_val:.3f} = {s_val:.6f}")
             self.log(f"=" * 50)
-        
-        # Calculate total parameters
+
+                                    
         total_rec_params = sum(p.numel() for p in self.model_rec.parameters())
         total_id_params = sum(p.numel() for p in self.model_id.parameters())
         trainable_rec_params = sum(p.numel() for p in self.model_rec.parameters() if p.requires_grad)
         trainable_id_params = sum(p.numel() for p in self.model_id.parameters() if p.requires_grad)
-        
+
         self.log("")
         self.log(f"========== Overall Statistics ==========")
         self.log(f"Total parameters (all models): {total_rec_params + total_id_params:,}")
@@ -925,31 +933,31 @@ class Trainer(object):
         for epoch_idx in range(self.epochs):
             self.accelerator.wait_for_everyone()
 
-            # Staged unfreezing: freeze RQ-VAE for first N epochs
+                                                                 
             freeze_id_epochs = self.config.get('freeze_id_epochs', 0)
-            if joint_optimization and epoch_idx < freeze_id_epochs:
-                # Freeze RQ-VAE
+            if end_to_end and epoch_idx < freeze_id_epochs:
+                               
                 for param in self.model_id.parameters():
                     param.requires_grad = False
                 if epoch_idx == 0:
                     self.log(f'[Training Mode] RQ-VAE FROZEN for first {freeze_id_epochs} epochs')
                     self.log(f'[Training Mode] Will unfreeze at epoch {freeze_id_epochs}')
-            elif joint_optimization and epoch_idx == freeze_id_epochs:
-                # Unfreeze RQ-VAE at specified epoch
+            elif end_to_end and epoch_idx == freeze_id_epochs:
+                                                    
                 for param in self.model_id.parameters():
                     param.requires_grad = True
 
-                # Re-apply encoder/RQ freeze if specified
+                                                         
                 freeze_id_encoder = self.config.get('freeze_id_encoder', False)
                 freeze_id_encoder_layers = self.config.get('freeze_id_encoder_layers', 0)
                 freeze_rq = self.config.get('freeze_rq', False)
 
                 if freeze_id_encoder:
-                    # If freeze_id_encoder_layers is set, freeze only the bottom N layers
+                                                                                         
                     if freeze_id_encoder_layers > 0:
                         encoder_modules = list(self.model_id.encoder.mlp_layers.children())
                         linear_layer_idx = 0
-                        
+
                         for module in encoder_modules:
                             if isinstance(module, nn.Linear):
                                 if linear_layer_idx < freeze_id_encoder_layers:
@@ -957,7 +965,7 @@ class Trainer(object):
                                         param.requires_grad = False
                                 linear_layer_idx += 1
                     else:
-                        # Freeze all encoder layers
+                                                   
                         for param in self.model_id.encoder.parameters():
                             param.requires_grad = False
                 if freeze_rq:
@@ -975,34 +983,70 @@ class Trainer(object):
                 if freeze_rq:
                     self.log(f'[Training Mode] (RQ quantizer still frozen)')
 
-            # Adjust loss weights based on freeze status
-            is_id_frozen = joint_optimization and epoch_idx < freeze_id_epochs
+                                                        
+            is_id_frozen = end_to_end and epoch_idx < freeze_id_epochs
             if is_id_frozen:
-                # During freeze: only train recommender, disable RQ-VAE losses
+                                                                              
                 current_loss_w = {
                     'code_loss': loss_w['code_loss'],
-                    'recon_loss': 0.0,  # Disable
-                    'vq_loss': 0.0,     # Disable
-                    'qs_loss': 0.0,     # Disable
-                    'balance_loss': 0.0,  # Disable
-                    'gate_loss': 0.0,  # Disable
+                    'recon_loss': 0.0,           
+                    'vq_loss': 0.0,              
+                    'qs_loss': 0.0,              
+                    'balance_loss': 0.0,           
+                    'gate_loss': 0.0,           
                 }
             else:
-                # After unfreeze: use full loss weights
+                                                       
                 current_loss_w = loss_w
 
-            # Train
+                   
             training_start_time = time()
             train_loss = self._train_epoch_rec(epoch_idx, loss_w=current_loss_w, freeze_id=is_id_frozen, verbose=verbose)
             training_end_time = time()
-            
-            # Print adaptive selection statistics at the end of each epoch
+
+                                                                          
             if self.config.get('use_adaptive_selection', False) and not is_id_frozen:
                 if dist.is_initialized():
                     stats = self.model_id.module.get_adaptive_selection_stats()
                 else:
                     stats = self.model_id.get_adaptive_selection_stats()
-                
+
+                if stats['total_count'] > 0:
+                    self.log(f"\n{'='*60}")
+                    self.log(f"Epoch {epoch_idx} - 自适应选择统计:")
+                    self.log(f"{'='*60}")
+
+                                                                          
+                    if stats.get('use_gate_network', False):
+                        self.log(f"模式: Gate Network (基于embedding的可学习门控)")
+                        self.log(f"门控策略: gate <= 0.5 使用Gumbel, gate > 0.5 使用确定性")
+                        if stats.get('avg_gate_reg_loss') is not None:
+                            self.log(f"平均Gate正则化Loss: {stats['avg_gate_reg_loss']:.6f}")
+                    elif stats.get('use_soft_frequency', False):
+                        self.log(f"模式: Soft Frequency Threshold (可学习)")
+                        self.log(f"学习到的阈值: {stats['learned_threshold']:.6f} (平均频率: {1.0/256:.6f})")
+                        self.log(f"阈值logit: {stats['threshold_logit']:.4f}")
+                    else:
+                        self.log(f"模式: Hard Threshold Ratio (固定)")
+                        self.log(f"阈值比例: {self.config.get('hot_threshold_ratio', 1.5)}")
+
+                    self.log(f"总样本数: {stats['total_count']}")
+                    self.log(f"使用 Gumbel 采样 (热门code): {stats['gumbel_count']} ({stats['gumbel_ratio']*100:.2f}%)")
+                    self.log(f"使用确定性索引 (冷门code): {stats['deterministic_count']} ({stats['deterministic_ratio']*100:.2f}%)")
+
+                                                             
+                    if 'per_layer' in stats and len(stats['per_layer']) > 0:
+                        self.log(f"\n各量化层详细统计:")
+                        for i, layer_stats in enumerate(stats['per_layer']):
+                            if layer_stats['total_count'] > 0:
+                                layer_info = f"  Layer {i}: Gumbel={layer_stats['gumbel_ratio']*100:>5.2f}%, " \
+                                           f"Det={layer_stats['deterministic_ratio']*100:>5.2f}%, " \
+                                           f"Total={layer_stats['total_count']}"
+                                if layer_stats.get('use_soft_frequency', False):
+                                    layer_info += f", Learned_α={layer_stats['learned_threshold']:.6f}"
+                                self.log(layer_info)
+                    self.log(f"{'='*60}\n")
+
             train_loss_output = self._generate_train_loss_output(
                 epoch_idx, training_start_time, training_end_time, train_loss
             )
@@ -1012,12 +1056,12 @@ class Trainer(object):
             if hasattr(self, 'id_lr_scheduler'):
                 self.log(f'[Epoch {epoch_idx}] ID lr: {self.id_lr_scheduler.get_lr()}')
 
-            # Regenerate codes every epoch for joint optimization training
-            if joint_optimization:
+                                                                  
+            if end_to_end:
                 all_item_code = self.get_code(epoch_idx=epoch_idx, verbose=verbose)
                 self.all_item_code = torch.tensor(all_item_code).to(self.device)
 
-            # Evaluate every epoch (as requested)
+                                                 
             metrics = self._test_epoch(test_data=self.valid_data, code=self.all_item_code, verbose=verbose)
             total_metrics = metrics
 
@@ -1039,13 +1083,13 @@ class Trainer(object):
             if stop:
                 break
 
-        # ============================================
-        # Load Stage 1 checkpoint if provided (before testing)
-        # ============================================
+                                                      
+                                                              
+                                                      
         stage2_epochs = self.config.get('stage2_epochs', 0)
         stage1_ckpt_path = self.config.get('stage1_checkpoint', None)
-        
-        # If user provided a Stage 1 checkpoint, load it first
+
+                                                              
         if stage1_ckpt_path is not None:
             self.log("")
             self.log("="*60)
@@ -1053,20 +1097,20 @@ class Trainer(object):
             self.log("="*60)
             self.log(f"Checkpoint: {stage1_ckpt_path}")
             self.log("")
-            
-            # Load checkpoint
+
+                             
             if dist.is_initialized():
                 safe_load(self.model_rec.module, stage1_ckpt_path, verbose=verbose)
                 safe_load(self.model_id.module, stage1_ckpt_path+'.rqvae', verbose=verbose)
             else:
                 safe_load(self.model_rec, stage1_ckpt_path, verbose=verbose)
                 safe_load(self.model_id, stage1_ckpt_path+'.rqvae', verbose=verbose)
-            
-            # Load codes
+
+                        
             best_code = json.load(open(stage1_ckpt_path[:-3]+'.code.json'))
             self.all_item_code = torch.tensor(best_code).to(self.device)
-            
-            # Evaluate the loaded checkpoint to establish baseline
+
+                                                                  
             self.log("Evaluating loaded checkpoint on validation set...")
             initial_metrics = self._test_epoch(test_data=self.valid_data, code=self.all_item_code, verbose=verbose)
             self.best_score = initial_metrics[self.valid_metric]
@@ -1075,14 +1119,14 @@ class Trainer(object):
             self.log(f"Initial {self.valid_metric}: {self.best_score:.6f}")
             self.log(f"Initial Validation Results: {initial_metrics}")
             self.log("")
-            
+
             self.stage1_test_results = None
-        
-        # Only run Stage 1 test if we actually ran Stage 1 training
+
+                                                                   
         if stage1_ckpt_path is None:
-            # ============================================
-            # Stage 1: Test on best model
-            # ============================================
+                                                          
+                                         
+                                                          
             self.log("")
             self.log("="*60)
             self.log("Stage 1 Training Complete!")
@@ -1090,8 +1134,8 @@ class Trainer(object):
             self.log(f"Best Stage 1 Validation Results: {self.best_result}")
             self.log("="*60)
             self.log("")
-            
-            # Test Stage 1 best model
+
+                                     
             self.log("Testing Stage 1 best model on test set...")
             stage1_test_results = self.test(verbose=verbose, model_file=self.best_ckpt)
             self.log("")
@@ -1099,53 +1143,53 @@ class Trainer(object):
             self.log(f"Stage 1 Test Results: {stage1_test_results}")
             self.log("="*60)
             self.log("")
-            
-            # Store stage 1 results for comparison later
+
+                                                        
             self.stage1_test_results = stage1_test_results
 
-        if stage2_epochs > 0 and joint_optimization:
+        if stage2_epochs > 0 and end_to_end:
             self.log("")
             self.log("="*60)
             self.log("Starting Stage 2: Training Recommender with Frozen ID Tokenizer")
             self.log("="*60)
             self.log(f"Stage 2 epochs: {stage2_epochs}")
-            
-            # Checkpoint already loaded above if stage1_ckpt_path was provided
+
+                                                                              
             if stage1_ckpt_path is not None:
                 stage1_ckpt = stage1_ckpt_path
                 self.log(f"Using already-loaded Stage 1 checkpoint: {stage1_ckpt}")
             else:
-                # Load best checkpoint from Stage 1 training
+                                                            
                 stage1_ckpt = self.best_ckpt
                 self.log(f"Loading best checkpoint from Stage 1: {stage1_ckpt}")
-                
-                # Load checkpoint
+
+                                 
                 if dist.is_initialized():
                     safe_load(self.model_rec.module, stage1_ckpt, verbose=verbose)
                     safe_load(self.model_id.module, stage1_ckpt+'.rqvae', verbose=verbose)
                 else:
                     safe_load(self.model_rec, stage1_ckpt, verbose=verbose)
                     safe_load(self.model_id, stage1_ckpt+'.rqvae', verbose=verbose)
-                
-                # Load codes
+
+                            
                 best_code = json.load(open(stage1_ckpt[:-3]+'.code.json'))
                 self.all_item_code = torch.tensor(best_code).to(self.device)
-            
-            # Freeze entire ID tokenizer
+
+                                        
             for param in self.model_id.parameters():
                 param.requires_grad = False
             self.log('[Stage 2] ID Tokenizer COMPLETELY FROZEN')
-            
-            # ====== CRITICAL: Force deterministic quantization in Stage 2 ======
-            # Override stop_gumbel_sampling_epoch to force pure deterministic
+
+                                                                                 
+                                                                             
             if dist.is_initialized():
                 self.model_id.module.stop_gumbel_sampling_epoch = -1
                 self.log('[Stage 2] Force deterministic: stop_gumbel_sampling_epoch = -1')
             else:
                 self.model_id.stop_gumbel_sampling_epoch = -1
                 self.log('[Stage 2] Force deterministic: stop_gumbel_sampling_epoch = -1')
-            
-            # Adjust loss weights: only use code_loss for recommender
+
+                                                                     
             stage2_loss_w = {
                 'code_loss': loss_w.get('code_loss', 1.0),
                 'recon_loss': 0.0,
@@ -1157,48 +1201,48 @@ class Trainer(object):
                 'dec_cl_loss': 0.0,
             }
             self.log(f'[Stage 2] Loss weights: {stage2_loss_w}')
-            
-            # Update learning rate for stage 2 if specified
+
+                                                           
             stage2_lr_rec = self.config.get('stage2_lr_rec', self.lr_rec)
             if stage2_lr_rec != self.lr_rec:
                 self.log(f'[Stage 2] Updating learning rate: {self.lr_rec} -> {stage2_lr_rec}')
                 for param_group in self.rec_optimizer.param_groups:
                     param_group['lr'] = stage2_lr_rec
-            
-            # Update early_stop for stage 2 if specified
+
+                                                        
             stage2_early_stop = self.config.get('stage2_early_stop', self.early_stop)
-            
-            # Reset training state for stage 2
-            # If Stage 1 was skipped (using external checkpoint), initialize with defaults
+
+                                              
+                                                                                          
             stage2_best_score = self.best_score if self.best_score > 0 else 0.0
             stage2_best_result = self.best_result if self.best_result else {}
             stage2_best_ckpt = self.best_ckpt
             cur_eval_step = 0
             stop = False
-            
+
             self.log("")
             self.log("[Stage 2] Starting training loop...")
             self.log("")
-            
-            # Stage 2 training loop
+
+                                   
             for epoch_idx in range(stage2_epochs):
                 self.accelerator.wait_for_everyone()
-                
-                # Train (freeze_id=True to skip ID optimizer)
+
+                                                             
                 training_start_time = time()
                 train_loss = self._train_epoch_rec(epoch_idx, loss_w=stage2_loss_w, freeze_id=True, verbose=verbose)
                 training_end_time = time()
-                
+
                 train_loss_output = self._generate_train_loss_output(
                     epoch_idx, training_start_time, training_end_time, train_loss
                 )
-                
+
                 self.log(f"[Stage 2 Epoch {epoch_idx}] {train_loss_output}")
                 self.log(f'[Stage 2 Epoch {epoch_idx}] REC lr: {self.rec_lr_scheduler.get_lr()}')
-                
-                # Evaluate
+
+                          
                 metrics = self._test_epoch(test_data=self.valid_data, code=self.all_item_code, verbose=verbose)
-                
+
                 if metrics[self.valid_metric] > stage2_best_score:
                     stage2_best_score = metrics[self.valid_metric]
                     stage2_best_result = metrics
@@ -1207,22 +1251,22 @@ class Trainer(object):
                     self.log(f'[Stage 2 Epoch {epoch_idx}] New best model saved!')
                 else:
                     cur_eval_step += 1
-                
+
                 self.log(f'[Stage 2 Epoch {epoch_idx}] Val Results: {metrics}')
                 self.log(f'[Stage 2 Epoch {epoch_idx}] Best {self.valid_metric}: {stage2_best_score:.6f}')
-                
+
                 self.accelerator.wait_for_everyone()
-                
+
                 if cur_eval_step >= stage2_early_stop:
                     self.log(f"[Stage 2] Early stopping triggered at epoch {epoch_idx}")
                     stop = True
                     break
-            
-            # Update best results with stage 2 results
+
+                                                      
             self.best_score = stage2_best_score
             self.best_result = stage2_best_result
             self.best_ckpt = stage2_best_ckpt
-            
+
             self.log("")
             self.log("="*60)
             self.log(f"Stage 2 Training Complete!")
@@ -1230,8 +1274,8 @@ class Trainer(object):
             self.log(f"Best Stage 2 Validation Results: {stage2_best_result}")
             self.log("="*60)
             self.log("")
-            
-            # Test Stage 2 best model
+
+                                     
             self.log("Testing Stage 2 best model on test set...")
             stage2_test_results = self.test(verbose=verbose, model_file=stage2_best_ckpt)
             self.log("")
@@ -1239,16 +1283,16 @@ class Trainer(object):
             self.log(f"Stage 2 Test Results: {stage2_test_results}")
             self.log("="*60)
             self.log("")
-            
-            # Compare Stage 1 vs Stage 2 (only if Stage 1 was run)
+
+                                                                  
             if self.stage1_test_results is not None:
                 self.log("="*60)
                 self.log("Stage 1 vs Stage 2 Comparison:")
                 self.log("="*60)
                 self.log(f"Stage 1 Test Results: {self.stage1_test_results}")
                 self.log(f"Stage 2 Test Results: {stage2_test_results}")
-                
-                # Calculate improvements
+
+                                        
                 for metric_name in self.stage1_test_results.keys():
                     stage1_val = self.stage1_test_results[metric_name]
                     stage2_val = stage2_test_results[metric_name]
@@ -1264,7 +1308,7 @@ class Trainer(object):
                 self.log("")
 
         return self.best_score
-    
+
     @torch.no_grad()
     def test(self, verbose=True, model_file=None, prefix_allowed_tokens_fn=None):
         test_results=None
@@ -1278,7 +1322,7 @@ class Trainer(object):
     @torch.no_grad()
     def _test_epoch(self, code=None, test_data=None, load_best_model=False, model_file=None,
                     prefix_allowed_tokens_fn=None, verbose=True):
-        
+
         if test_data is None:
             test_data = self.test_data
 
@@ -1328,7 +1372,7 @@ class Trainer(object):
             B = input_ids.size(0)
             input_ids = item_code[input_ids].clone().detach().reshape(B, -1)
             labels = item_code[labels].clone().detach().reshape(B, -1)
-            attention_mask = (input_ids != -1).bool() 
+            attention_mask = (input_ids != -1).bool()
 
             if dist.is_initialized():
                 preds = self.model_rec.module.generate(input_ids=input_ids, attention_mask=attention_mask, n_return_sequences=10)
@@ -1347,7 +1391,7 @@ class Trainer(object):
             metrics[m] = round(metrics[m] / total, 6)
 
         return metrics
-    
+
     @torch.no_grad()
     def get_code(self, epoch_idx, verbose=True):
         self.model_rec.eval()
@@ -1358,18 +1402,18 @@ class Trainer(object):
         else:
             all_item_embs = self.model_rec.semantic_embedding.weight.data[1:]
             all_item_prefix = self.model_id.get_indices(all_item_embs).detach().cpu().numpy()
-        
+
 
         if verbose:
             for i in range(self.code_length-1):
                 self.log(f'[Epoch {epoch_idx}] Evaluation {self.save_path}/{epoch_idx}.pt Code balance {balance(all_item_prefix[:, i].tolist(), ncentroids=self.code_num)} Used code num of level {i+1}: {len(set(all_item_prefix[:, i].tolist()))}')
 
             self.log(f'[Epoch {epoch_idx}] Evaluation {self.save_path}/{epoch_idx}.pt Code confilct {conflict(all_item_prefix.tolist())}')
-        
+
         all_item_prefix = all_item_prefix.tolist()
 
         tokens2item = defaultdict(list)
-        all_item_tokens = [[-1] * self.code_length]  # Dynamic based on code_length
+        all_item_tokens = [[-1] * self.code_length]                                
         max_conflict = 0
         for i in range(len(all_item_prefix)):
             str_id = ' '.join(map(str, all_item_prefix[i]))
@@ -1387,4 +1431,3 @@ class Trainer(object):
 
     def log(self, message, level='info'):
         return log(message, self.accelerator, self.logger, level=level)
-

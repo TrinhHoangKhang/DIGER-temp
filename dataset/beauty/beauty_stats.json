@@ -1,0 +1,1 @@
+{"dataset": "Beauty", "n_users": 22363, "n_items": 12101, "n_train": 131413, "n_valid": 22363, "n_test": 22363, "embedding_dim": 256, "skipped_users": 0, "invalid_items": 0}

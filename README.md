@@ -1,144 +1,183 @@
-# DIGER: Differentiable Semantic ID for Generative Recommendation 
+# DIGER: Differentiable Semantic ID for Generative Recommendation
 
 This work has been **accepted as a full paper** at **SIGIR 2026**.
 
-![SID](https://img.shields.io/badge/Task-SID-red) 
-![Generative recommendation](https://img.shields.io/badge/Task-Generative--recommendation-red) 
+![SID](https://img.shields.io/badge/Task-SID-red)
+![Generative recommendation](https://img.shields.io/badge/Task-Generative--recommendation-red)
 <a href="https://arxiv.org/abs/2601.19711" alt="arXiv"><img src="https://img.shields.io/badge/arXiv-2601.19711-FAA41F.svg?style=flat" /></a>
-<a href="https://mp.weixin.qq.com/s/Cs2kwRR0U94GyT5h7hkldg" alt="中文博客"><img src="https://img.shields.io/badge/博客-新智元-orange.svg?style=flat" /></a> 
-
+<a href="https://mp.weixin.qq.com/s/Cs2kwRR0U94GyT5h7hkldg" alt="Chinese blog"><img src="https://img.shields.io/badge/blog-Xinzhiyuan-orange.svg?style=flat" /></a>
 
 ## Overview
 
-This repository contains the core implementation of our recommendation model with two training strategies:
-1. **Frequency-based Uncertainty Decay**: Dynamically switches between Gumbel sampling and deterministic indexing based on code usage frequency
-2. **Standard Deviation Uncertainty Decay**: Uses learnable uncertainty to balance task loss
+DIGER studies differentiable semantic IDs for generative recommendation. This release contains the code, processed data, semantic embeddings, and RQ-VAE checkpoints needed to reproduce the paper rows for:
 
-## Roadmap (TODO)
+- **FrqUD**: frequency-based uncertainty decay.
+- **SDUD**: standard-deviation uncertainty decay.
+- **SDUD+FrqUD**: the combined setting.
 
-**Current status:** Due to time constraints, what you see here is an **illustrative / reference implementation**—it sketches the model and training flow but is **not** yet the full end-to-end release we intend to ship.
-
-**Target:** Before **SIGIR 2026** (conference begins **July 20, 2026**), we plan to publish:
-
-- [ ] **Runnable code** — including configs and pre-trained rq-vae checkpoints needed to reproduce the paper
-- [ ] **Dataset** — processed data and embeddings, with setup instructions in the README
+The released scripts cover all three datasets used in the table: Beauty, Instruments, and Yelp.
 
 ## Repository Structure
 
-```
+```text
 DIGER/
-├── main.py                              # Main training entry point
-├── vq.py                                # Vector Quantization (RQ-VAE) implementation
-├── trainer.py                           # Training loop and loss computation
-├── model.py                             # Recommender model architecture
-├── data.py                              # Data loading utilities
-├── utils.py                             # Helper functions
-├── metrics.py                           # Evaluation metrics
-├── layers.py                            # Neural network layers
+├── main.py
+├── model.py
+├── trainer.py
+├── vq.py
+├── data.py
 ├── config/
-│   └── beauty_jo.yaml                  # Configuration file for Beauty dataset
-├── accelerate_config.yaml              # Accelerate configuration
-├── run_FrqUD.sh                        # Training script 1
-└── run_SDUD.sh                         # Training script 2
+│   ├── beauty_jo.yaml
+│   ├── instruments_jo.yaml
+│   └── yelp_jo.yaml
+├── dataset/
+│   ├── beauty/
+│   ├── instruments/
+│   └── yelp/
+├── rqvae_ckpt/
+│   ├── beauty/best_collision_model.pth
+│   ├── instruments/best_collision_model.pth
+│   └── yelp/best_collision_model.pth
+├── scripts/
+│   ├── check_artifacts.py
+│   ├── run_experiment.sh
+│   ├── run_table_two_gpus.sh
+│   └── verify_results.py
+├── run_FrqUD.sh
+├── run_SDUD.sh
+├── run_SDUD_FrqUD.sh
+└── run_reproduce_table.sh
 ```
+
+Large release artifacts, including checkpoints, embeddings, and JSONL splits, are tracked with Git LFS.
 
 ## Requirements
 
-### Dependencies
-
 ```bash
-pip install torch transformers accelerate pyyaml numpy faiss-cpu scikit-learn colorama tqdm
+conda create -n diger python=3.12.11 -y
+conda activate diger
+pip install -r requirements.txt
 ```
 
-### Python Version
+Reference environment used for the released paper logs:
+
 - Python 3.12.11
 - PyTorch 2.5.1
+- Transformers 4.57.1
+- Accelerate 1.10.1
+- NumPy 2.3.1
 
-## Data Preparation
+Using newer major versions can change initialization and dropout RNG streams. A quick sanity check for the paper environment is the first Yelp SDUD+FrqUD training line:
 
-### 1. Dataset Structure
-
-Organize your dataset in the following structure:
-
-```
-dataset/
-└── beauty/
-    ├── beauty.train.inter
-    ├── beauty.valid.inter
-    ├── beauty.test.inter
-    └── Beauty.emb-llama.npy    # Semantic embeddings
+```text
+[Simple Uncertainty] sigma=2.0000, Loss=5.4814
 ```
 
-### 2. Data Format
+If this line is closer to `Loss=5.5120`, the code and artifacts are likely correct but the active Python environment is not the paper environment.
 
-- **Interaction files** (`.inter`): Tab-separated values with columns `user_id:token`, `item_id:token`, `timestamp:float`
-- **Semantic embeddings** (`.npy`): NumPy array of shape `[num_items, embedding_dim]`
-
-### 3. Pre-trained RQ-VAE Checkpoint
-
-You need a pre-trained RQ-VAE checkpoint. The checkpoint should contain:
-- Encoder weights
-- Residual Quantization (RQ) codebooks
-- Decoder weights (optional, can be frozen)
-
-## Configuration
-
-### Update Paths
-
-Before running, update the placeholder paths in the following files:
-
-1. **Shell scripts** (`run_FrqUD.sh`, `run_SDUD.sh`):
-   ```bash
-   RQVAE_INIT="<PATH_TO_RQVAE_CHECKPOINT>"  # Update this
-   ```
-
-2. **Config file** (`config/beauty_jo.yaml`):
-   ```yaml
-   semantic_emb_path: <PATH_TO_DATASET>/beauty/Beauty.emb-llama.npy  # Update this
-   rqvae_path: <PATH_TO_RQVAE_CHECKPOINT>  # Update this
-   data_path: ./dataset  # Update if needed
-   ```
-
-## Usage
-
-### Training Script 1: Frequency-based Uncertainty Decay
-
-This script uses adaptive selection to dynamically choose between Gumbel sampling (for popular codes) and deterministic indexing (for rare codes).
+After cloning the repository, pull the LFS files:
 
 ```bash
-bash run_FrqUD.sh
+git lfs install
+git lfs pull
 ```
 
-### Training Script 2: Standard Deviation Uncertainty Decay
-
-This script uses a learnable uncertainty parameter to automatically balance task loss.
+Then verify the released artifacts:
 
 ```bash
-bash run_SDUD.sh
+python scripts/check_artifacts.py
 ```
 
-**Loss formula:**
+## Data
+
+Each dataset directory contains JSONL interaction splits, an item-id map, and the semantic embedding matrix used by the released configs:
+
+```text
+dataset/<dataset>/
+├── <dataset>.train.jsonl
+├── <dataset>.valid.jsonl
+├── <dataset>.test.jsonl
+├── <dataset>.emb_map.json
+└── <Dataset>.emb-llama.npy
 ```
-L = L_task / (2*(σ+λ)²) + log(σ+λ)
+
+The loader expects each JSONL row to contain `inter_history` and `target_id`.
+
+## Reproduction
+
+Run one experiment:
+
+```bash
+bash scripts/run_experiment.sh beauty frqud
+bash scripts/run_experiment.sh instruments sdud
+bash scripts/run_experiment.sh yelp both
 ```
 
-At equilibrium: `σ = sqrt(L_task) - λ`
+If you keep the paper environment outside your current shell, point the script at its `bin` directory:
 
-## Output
+```bash
+DIGER_ENV_BIN=/path/to/env/bin bash scripts/run_experiment.sh yelp both
+```
 
-### Logs
+The same variable works for the full-table launcher:
 
-Training logs are saved to `./logs/<dataset>/` with timestamps.
+```bash
+DIGER_ENV_BIN=/path/to/env/bin bash run_reproduce_table.sh
+```
 
-### Checkpoints
+Convenience wrappers default to Beauty and accept the dataset as the first argument:
 
-Model checkpoints are saved to `./myckpt/<dataset>/` including:
-- `best_model.pth`: Best model based on validation metric
-- Training statistics and metrics
+```bash
+bash run_FrqUD.sh beauty
+bash run_SDUD.sh instruments
+bash run_SDUD_FrqUD.sh yelp
+```
+
+Run the full paper table on at most two single-GPU processes. The worker script uses a shared task queue, so whichever GPU finishes first takes the next experiment:
+
+```bash
+bash run_reproduce_table.sh
+```
+
+By default this uses GPU `0` and GPU `1`. To choose another pair:
+
+```bash
+GPU_LIST="2 3" bash run_reproduce_table.sh
+```
+
+By default, `run_reproduce_table.sh` starts a fresh queue by resetting `reproduction_logs/table_queue.state`. To resume an interrupted queue, set:
+
+```bash
+RESUME_QUEUE=1 bash run_reproduce_table.sh
+```
+
+Training logs are written to `logs/<dataset>/`; stdout mirrors are written to `reproduction_logs/`. Model checkpoints are written to `myckpt/<dataset>/`.
+
+## Paper Data
+
+The paper reports these metrics (R@5/R@10/N@5/N@10):
+
+- Beauty: FrqUD 0.0440/0.0683/0.0294/0.0372; SDUD 0.0442/0.0657/0.0292/0.0361; SDUD+FrqUD 0.0439/0.0696/0.0293/0.0376
+- Instruments: FrqUD 0.0915/0.1138/0.0772/0.0844; SDUD 0.0905/0.1124/0.0753/0.0823; SDUD+FrqUD 0.0907/0.1127/0.0758/0.0829
+- Yelp: FrqUD 0.0266/0.0432/0.0173/0.0227; SDUD 0.0267/0.0439/0.0171/0.0227; SDUD+FrqUD 0.0273/0.0437/0.0175/0.0227
+
+After training, compare the newest matching logs with the paper targets:
+
+```bash
+python scripts/verify_results.py
+```
+
+The verifier scans `logs/*/*.log` and `reproduction_logs/*` (including `.driver.log`) from the current run. It uses a 1% relative tolerance with a small absolute floor for very small metrics.
+
+If you only want to check the packaged reference logs without rerunning experiments, run:
+
+```bash
+VERIFY_WITH_BACKUP=1 python scripts/verify_results.py
+```
 
 ## Citation
-If you find our paper useful in your work, please cite our paper as:
-```
+
+```bibtex
 @article{fu2026differentiable,
   title={Differentiable Semantic ID for Generative Recommendation},
   author={Fu, Junchen and Ge, Xuri and Karatzoglou, Alexandros and Arapakis, Ioannis and Verberne, Suzan and Jose, Joemon M and Ren, Zhaochun},

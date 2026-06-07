@@ -35,7 +35,7 @@ def train(config, verbose=True, rank=0):
 
     item2id, num_items, train, valid, test = load_split_data(config)
     code_num = config['code_num']
-    code_length = config['code_length'] # current length of the code
+    code_length = config['code_length']                             
     eos_token_id = -1
     batch_size=config['batch_size']
     eval_batch_size=config['eval_batch_size']
@@ -47,7 +47,7 @@ def train(config, verbose=True, rank=0):
     
     
     accelerator.wait_for_everyone()
-    # Initialize the model with the custom configuration
+                                                        
     model_config = T5Config(
             num_layers=config['encoder_layers'], 
             num_decoder_layers=config['decoder_layers'],
@@ -82,18 +82,18 @@ def train(config, verbose=True, rank=0):
     if rqvae_path is not None:
         safe_load(model_id, rqvae_path, verbose)
         
-        # NEW: Force reset sigma if initial_sigma OR initial_std is provided
-        # This prevents checkpoint from overwriting the desired noise level
+                                                                            
+                                                                           
         if 'initial_std' in config:
             initial_std = float(config['initial_std'])
             use_simple_uncertainty = config.get('use_simple_uncertainty_loss', False)
             
             if use_simple_uncertainty:
-                # AutoSigmaSimple: sigma is directly the std (no conversion)
+                                                                            
                 target_sigma = initial_std
                 log(f"[Config] Resetting sigma to {target_sigma} (direct std, from initial_std={initial_std})", accelerator, logger)
             else:
-                # AutoSigmaGumbel: sigma = log2(std)
+                                                    
                 if initial_std <= 1e-5:
                     target_sigma = -20.0
                 else:
@@ -113,7 +113,7 @@ def train(config, verbose=True, rank=0):
             log(f"[Config] Resetting sigma to {initial_sigma} (overriding checkpoint)", accelerator, logger)
             count = 0
             for name, param in model_id.named_parameters():
-                if 'sigma' in name: # and param.requires_grad: # Reset even if frozen, just in case
+                if 'sigma' in name:                                                                
                     param.data.fill_(initial_sigma)
                     count += 1
             log(f"  -> Reset {count} sigma parameters.", accelerator, logger)
@@ -135,7 +135,7 @@ def train(config, verbose=True, rank=0):
     trainer = Trainer(config=config, model_rec=model_rec, model_id=model_id, accelerator=accelerator, train_data=train_data_loader,
                       valid_data=valid_data_loader, test_data=test_data_loader, eos_token_id=eos_token_id)
 
-    # Train with frozen RQ-VAE
+                              
     best_score = trainer.train(verbose=verbose)
     test_results = trainer.test()
 
@@ -148,7 +148,7 @@ if __name__=="__main__":
     args, unparsed_args = parse_arguments()
     command_line_configs = parse_command_line_args(unparsed_args)
 
-    # Config
+            
     config = {}
     config.update(yaml.safe_load(open(args.config, 'r')))
     config.update(command_line_configs)
@@ -162,7 +162,7 @@ if __name__=="__main__":
     config['device'], config['use_ddp'] = init_device()
     accelerator = Accelerator()
 
-    # gather all the config and set the checkpoint name
+                                                       
     all_run_local_time = accelerator.gather_for_metrics([local_time])
     config['run_local_time'] = all_run_local_time[0]
 

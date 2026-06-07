@@ -1,15 +1,15 @@
-dataset: beauty
+dataset: instruments
 seed: 2020
 reproducibility: true
 log_dir: ./logs
 
 map_path: .emb_map.json
-semantic_emb_path: Beauty.emb-llama.npy
+semantic_emb_path: Instruments.emb-llama.npy
 semantic_hidden_size: 4096
 code_num: 256
 code_length: 4
 
-epochs: 120
+epochs: 100
 lr_rec: 0.001
 weight_decay: 0.05
 
@@ -62,7 +62,7 @@ activation_function: relu
 feed_forward_proj: relu
 num_beams: 20
 
-rqvae_path: ./rqvae_ckpt/beauty/best_collision_model.pth
+rqvae_path: ./rqvae_ckpt/instruments/best_collision_model.pth
 
 num_emb_list: [256, 256, 256]
 beta: 0.25

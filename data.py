@@ -26,7 +26,7 @@ def load_split_data(config):
     valid_inter = load_jsonl(dataset_path + ".valid.jsonl")
     test_inter = load_jsonl(dataset_path + ".test.jsonl")
 
-    item2id = load_json(map_path) # id start from 1, 2, ...
+    item2id = load_json(map_path)                          
     
     train_seq = transform_token2id_seq(train_inter, item2id)
     valid_seq = transform_token2id_seq(valid_inter, item2id)
@@ -44,7 +44,7 @@ class SequentialSplitDataset(Dataset):
         self.config = config
 
         if data_ratio < 1:
-            # random sampling
+                             
             n_sample = int(len(inter_seq)*data_ratio)
             inter_seq = random.sample(inter_seq, n_sample)
             

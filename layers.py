@@ -33,7 +33,7 @@ class MLPLayers(nn.Module):
         self.apply(self.init_weights)
 
     def init_weights(self, module):
-        # We just initialize the module with normal distribution as the paper said
+                                                                                  
         if isinstance(module, nn.Linear):
             xavier_normal_(module.weight.data)
             if module.bias is not None:
@@ -86,25 +86,25 @@ def kmeans(
 def sinkhorn_algorithm(distances, epsilon, sinkhorn_iterations):
     Q = torch.exp(- distances / epsilon)
 
-    B = Q.shape[0] # number of samples to assign
-    K = Q.shape[1] # how many centroids per block (usually set to 256)
+    B = Q.shape[0]                              
+    K = Q.shape[1]                                                    
 
-    # make the matrix sums to 1
+                               
     sum_Q = Q.sum(-1, keepdim=True).sum(-2, keepdim=True)
     Q /= sum_Q
-    # print(Q.sum())
+                    
     for it in range(sinkhorn_iterations):
 
-        # normalize each column: total weight per sample must be 1/B
+                                                                    
         Q /= torch.sum(Q, dim=1, keepdim=True)
         Q /= B
 
-        # normalize each row: total weight per prototype must be 1/K
+                                                                    
         Q /= torch.sum(Q, dim=0, keepdim=True)
         Q /= K
 
 
-    Q *= B # the colomns must sum to 1 so that Q is an assignment
+    Q *= B                                                       
     return Q
 
 

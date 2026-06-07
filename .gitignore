@@ -24,6 +24,6 @@ htmlcov/
 # local experiment outputs
 logs/
 myckpt/
+reproduction_logs/
 
-# large data (keep local; see README)
-dataset/
+# large release artifacts are tracked through Git LFS

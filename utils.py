@@ -44,11 +44,6 @@ def set_color(log, color, highlight=True):
     return prev_log + log + "\033[0m"
 
 def get_local_time():
-    r"""Get current time
-
-    Returns:
-        str: current time
-    """
     cur = datetime.datetime.now()
     cur = cur.strftime("%b-%d-%Y_%H-%M")
 
@@ -59,14 +54,6 @@ def get_seqs_len(seqs):
     return seq_len
 
 def dict2str(result_dict):
-    r"""convert result dict to str
-
-    Args:
-        result_dict (dict): result dict
-
-    Returns:
-        str: result str
-    """
 
     return "    ".join(
         [str(metric) + " : " + str(value) for metric, value in result_dict.items()]
@@ -83,10 +70,18 @@ def read_pkl(filename):
     with open(filename, 'rb') as f:
         return pickle.load(f)
 
+
+def load_torch_checkpoint(file, map_location):
+    try:
+        return torch.load(file, map_location=map_location, weights_only=False)
+    except TypeError:
+        return torch.load(file, map_location=map_location)
+
+
 def safe_load(model, file, verbose=True):
-    checkpoint = torch.load(file, map_location=lambda storage, loc: storage)
+    checkpoint = load_torch_checkpoint(file, map_location=lambda storage, loc: storage)
     
-    # Auto-detect nested structure: if checkpoint has 'state_dict' key, extract it
+                                                                                  
     if isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
         state_dict = checkpoint['state_dict']
         if verbose:
@@ -99,7 +94,7 @@ def safe_load(model, file, verbose=True):
     new_keys_in_new = [k for k in new_state_dict_keys if k not in model_state_dict_keys]
     no_match_keys_of_model = [k for k in model_state_dict_keys if k not in new_state_dict_keys]
     
-    # Filter out EMA statistics and decoder keys from reporting (they're expected to be missing/extra)
+                                                                                                      
     new_keys_in_new_filtered = [k for k in new_keys_in_new if not (k.startswith('decoder.') or '_ema' in k)]
     no_match_keys_filtered = [k for k in no_match_keys_of_model if not ('_ema' in k or 'N_ema' in k)]
     
@@ -109,7 +104,7 @@ def safe_load(model, file, verbose=True):
 
 
 def safe_load_embedding(model, file, verbose=True):
-    state_dict = torch.load(file, map_location=lambda storage, loc: storage)
+    state_dict = load_torch_checkpoint(file, map_location=lambda storage, loc: storage)
     model_state_dict_keys = list(model.state_dict().keys())
     new_state_dict_keys = list(state_dict.keys())
     new_keys_in_new = [k for k in new_state_dict_keys if k not in model_state_dict_keys]
@@ -228,21 +223,21 @@ def get_collision_item(all_indices_str):
 @torch.no_grad()
 def sinkhorn_raw(out: Tensor, epsilon: float,
                  sinkhorn_iterations: int):
-    Q = torch.exp(out / epsilon).t()  # Q is K-by-B for consistency with notations from our paper
+    Q = torch.exp(out / epsilon).t()                                                             
 
     B = Q.shape[1]
-    K = Q.shape[0]  # how many prototypes
-    # make the matrix sums to 1
+    K = Q.shape[0]                       
+                               
 
     sum_Q = torch.clamp(torch.sum(Q), min=1e-5)
 
     Q /= sum_Q
     for it in range(sinkhorn_iterations):
-        # normalize each row: total weight per prototype must be 1/K
+                                                                    
         sum_of_rows = torch.clamp(torch.sum(Q, dim=1, keepdim=True), min=1e-5)
         Q /= sum_of_rows
         Q /= K
-        # normalize each column: total weight per sample must be 1/B
+                                                                    
         Q /= torch.clamp(torch.sum(torch.sum(Q, dim=0, keepdim=True), dim=1, keepdim=True), min=1e-5)
         Q /= B
     Q *= B
@@ -250,7 +245,7 @@ def sinkhorn_raw(out: Tensor, epsilon: float,
 
 
 def center_distance_for_constraint(distances):
-    # distances: B, K
+                     
     max_distance = distances.max()
     min_distance = distances.min()
 
@@ -295,12 +290,6 @@ def init_logger(config):
 
 
 def init_seed(seed, reproducibility):
-    r"""Initialize random seed for random functions in numpy, torch, cuda and cudnn.
-
-    Args:
-        seed (int): random seed
-        reproducibility (bool): Whether to require reproducibility
-    """
 
     import random
     import numpy as np
@@ -328,16 +317,6 @@ def get_file_name(config: dict, suffix: str = ''):
 
 
 def convert_config_dict(config: dict) -> dict:
-    """
-    Convert the values in a dictionary to their appropriate types.
-
-    Args:
-        config (dict): The dictionary containing the configuration values.
-
-    Returns:
-        dict: The dictionary with the converted values.
-
-    """
     for key in config:
         v = config[key]
         if not isinstance(v, str):
@@ -358,15 +337,8 @@ def convert_config_dict(config: dict) -> dict:
 
 
 def init_device():
-    """
-    Set the visible devices for training. Supports multiple GPUs.
-
-    Returns:
-        torch.device: The device to use for training.
-
-    """
     import torch
-    use_ddp = True if os.environ.get("WORLD_SIZE") else False  # Check if DDP is enabled
+    use_ddp = True if os.environ.get("WORLD_SIZE") else False                           
     if torch.cuda.is_available():
         return torch.device('cuda'), use_ddp
     else:
@@ -374,11 +346,6 @@ def init_device():
 
 
 def get_local_time():
-    r"""Get current time
-
-    Returns:
-        str: current time
-    """
     cur = datetime.datetime.now()
     cur = cur.strftime("%b-%d-%Y_%H-%M")
     return cur
@@ -412,4 +379,3 @@ def log(message, accelerator, logger, level='info'):
             logger.debug(message)
         else:
             raise ValueError(f'Invalid log level: {level}')
-
