@@ -7,9 +7,9 @@ This work has been **accepted as a full paper** at **SIGIR 2026**.
 <a href="https://arxiv.org/abs/2601.19711" alt="arXiv"><img src="https://img.shields.io/badge/arXiv-2601.19711-FAA41F.svg?style=flat" /></a>
 <a href="https://mp.weixin.qq.com/s/Cs2kwRR0U94GyT5h7hkldg" alt="Chinese blog"><img src="https://img.shields.io/badge/blog-Xinzhiyuan-orange.svg?style=flat" /></a>
 
-<img src="assets/figure2.png" alt="Figure 2: Comparison of DIGER and STE" width="100%" />
+<img src="assets/figure3.png" alt="Figure 3: DIGER framework compared with STE" width="100%" />
 
-*Figure 2. Comparison of STE vs. DIGER: Gumbel noise introduces exploratory updates in early training and improves code utilization (Paper Figure 2).*
+*Figure 3. DIGER framework compared with STE. DRIL adds stochastic exploration with Gumbel noise and uncertainty decay enables a stable exploration-exploitation transition (Paper Figure 3).*
 
 ## Overview
 
