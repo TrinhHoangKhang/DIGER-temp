@@ -1,1 +1,0 @@
-{"dataset": "Instruments", "n_users": 24772, "n_items": 9922, "n_train": 131837, "n_valid": 24772, "n_test": 24772, "embedding_dim": 256, "skipped_users": 0, "invalid_items": 0}
