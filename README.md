@@ -173,9 +173,10 @@ RESUME_QUEUE=1 bash run_reproduce_table.sh
 
 Training logs are written to `logs/<dataset>/`; stdout mirrors are written to `reproduction_logs/`. Model checkpoints are written to `myckpt/<dataset>/`.
 
-## RQ-VAE Pretraining (Stage-2 Checkpoint Reproduction)
+## RQ-VAE Pretraining (Stage-2 Checkpoint Training)
 
-This repository also includes the original Stage-2 RQ-VAE pretraining implementation from `scripts/rqvae/`, so the ckpt release can be reproduced from embeddings.
+This repository also includes the original Stage-2 RQ-VAE pretraining implementation from `scripts/rqvae/`.  
+You can train the Stage-2 checkpoint directly from embeddings.
 
 Default hyper-parameters:
 
@@ -209,7 +210,7 @@ bash scripts/run_rqvae_from_embedding.sh --embedding /path/to/Beauty.emb-llama.n
 bash scripts/run_rqvae_from_embedding.sh --embedding /path/to/custom_embedding.npy --dataset beauty
 ```
 
-或者直接用一条完整复现脚本（推荐）：
+You can also use a unified Stage-2 training wrapper (recommended):
 
 ```bash
 bash scripts/reproduce_rqvae_stage2.sh --embedding /path/to/Beauty.emb-llama.npy --dataset beauty
@@ -227,21 +228,15 @@ RQVAE_GPU="0,1" bash scripts/run_rqvae_from_all_embeddings.sh
 
 The runner accepts one or two GPU ids and will stop with an error if more than two are requested.
 
-原版实现与路径定位：
+Notes:
 
-- 该仓库用于复现的 `scripts/rqvae/*` 主体与 `main.py/trainer.py/datasets.py/utils.py/models/*` 在逻辑上与
-  `/data/junch/ETEGRec_ONE_Stage/RQVAE/*` 保持同源；`main`、`trainer`、`datasets`、`utils`、`models/rq.py`、`models/layers.py`、`models/rqvae.py`、`models/vq.py` 均已按原实现对齐。
-- 在 `MM_ONE_STAGE_GENREC` 的历史配置里，论文主线三组 ckpt 也主要引用了
-  `/data/junch/ETEGRec_ONE_Stage/RQVAE/rqvae_ckpt/<dataset>_strong_sinkhorn/...`。
-  例如：
-  - `run_beauty_standard_gumbel.sh` / `run_beauty_e2e_adaptive.sh` 中 `RQVAE_INIT` 指向 `.../beauty_strong_sinkhorn/Nov-03-2025_16-13-56/best_collision_model.pth`
-  - `run_instruments_deterministic.sh` 中 `RQVAE_INIT` 指向 `.../instruments_strong_sinkhorn/Dec-04-2025_14-48-43/best_collision_model.pth`
-  - `run_yelp_standard_gumbel.sh` / `run_yelp_adaptive_dynamic_sigma.sh` 中 `RQVAE_INIT` 指向 `.../yelp_strong_sinkhorn/Dec-07-2025_20-22-35/best_collision_model.pth`
+- Stage-2 implementation files in this repository are kept in `scripts/rqvae/` and include `main.py`, `trainer.py`, `datasets.py`, `utils.py`, and `models/{rq.py,layers.py,rqvae.py,vq.py}`.
+- Use this section as a public training workflow. If you need to compare against your own baseline checkpoints, set `--baseline_root` and `--ckpt_root` to your local paths.
 
-复现完成后建议立刻做一键确认（会对比三组ckpt的超参、epoch/collision、以及 strict 模式下的 hash）：
+After training, run optional verification (for configuration, collision, and epoch consistency):
 
 ```bash
-python3 scripts/rqvae/compare_rqvae_ckpt.py --ckpt_root ./rqvae_ckpt --baseline_root /data/junch/ETEGRec_ONE_Stage/RQVAE/rqvae_ckpt --expect_hash --strict
+python3 scripts/rqvae/compare_rqvae_ckpt.py --ckpt_root ./rqvae_ckpt --baseline_root /path/to/baseline_rqvae_ckpt --expect_hash --strict
 ```
 
 Run all three default embeddings from the repo in one go:
@@ -256,13 +251,12 @@ All runners copy the newest `best_collision_model.pth` to:
 rqvae_ckpt/<dataset>/best_collision_model.pth
 ```
 
-Notes on source parity:
+Checkpoint lineage:
 
-- `scripts/rqvae/` in this repo is the core Stage-2 pretraining implementation used for the released checkpoints.
-- The code was cross-checked against `/data/junch/ETEGRec_ONE_Stage/RQVAE` and is aligned with its core Stage-2 files (`main.py`, `trainer.py`, `datasets.py`, `models/{rqvae.py,vq.py,layers.py,utils.py}`).
-- In historical paper runs, `MM_ONE_STAGE_GENREC` typically loads Stage-2 checkpoints from `/data/junch/ETEGRec_ONE_Stage/RQVAE/rqvae_ckpt/<dataset>_strong_sinkhorn/.../best_collision_model.pth`.
+- `scripts/rqvae/` in this repo is the core Stage-2 pretraining implementation used for this release.
+- The code is aligned with the corresponding Stage-2 implementation in the original project.
 
-If you need to reproduce the same checkpoint lineage from a custom embedding, point `RQVAE_CKPT_ROOT` explicitly:
+If you want to train under a custom output directory from a custom embedding, set `RQVAE_CKPT_ROOT` explicitly:
 
 ```bash
 RQVAE_CKPT_ROOT=/your/ckpt/root RQVAE_EPOCHS=20000 \
