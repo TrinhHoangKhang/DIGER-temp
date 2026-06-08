@@ -8,7 +8,36 @@ fi
 
 DATASET="$1"
 VARIANT="$2"
-GPU="${GPU:-0}"
+GPU_SPEC="${GPU:-0}"
+
+GPU_LIST="${GPU_SPEC}"
+if [[ "${GPU_LIST}" == cuda:* ]]; then
+  GPU_LIST="${GPU_LIST#cuda:}"
+fi
+GPU_LIST="${GPU_LIST//,/ }"
+read -r -a _gpu_arr <<<"${GPU_LIST}"
+
+if (( ${#_gpu_arr[@]} > 2 )); then
+  echo "run_experiment supports at most 2 GPUs. Received: ${GPU_SPEC}" >&2
+  exit 2
+fi
+if (( ${#_gpu_arr[@]} == 0 )) || [[ -z "${_gpu_arr[0]}" ]]; then
+  echo "Invalid GPU spec: ${GPU_SPEC}" >&2
+  exit 2
+fi
+if (( ${#_gpu_arr[@]} >= 1 )) && ! [[ "${_gpu_arr[0]}" =~ ^[0-9]+$ ]]; then
+  echo "Invalid GPU index: ${_gpu_arr[0]}" >&2
+  exit 2
+fi
+if (( ${#_gpu_arr[@]} == 2 )) && ! [[ "${_gpu_arr[1]}" =~ ^[0-9]+$ ]]; then
+  echo "Invalid GPU index: ${_gpu_arr[1]}" >&2
+  exit 2
+fi
+if (( ${#_gpu_arr[@]} == 2 )); then
+  GPU="${_gpu_arr[0]},${_gpu_arr[1]}"
+else
+  GPU="${_gpu_arr[0]}"
+fi
 ACCEL_CFG="${ACCEL_CFG:-accelerate_config.yaml}"
 CONFIG="config/${DATASET}_jo.yaml"
 ACCELERATE_BIN="${ACCELERATE_BIN:-accelerate}"

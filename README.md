@@ -50,10 +50,22 @@ DIGER/
 │   ├── check_artifacts.py
 │   ├── run_experiment.sh
 │   ├── run_table_two_gpus.sh
+│   ├── run_rqvae_pretrain.sh
+│   ├── rqvae/
+│   │   ├── main.py
+│   │   ├── datasets.py
+│   │   ├── trainer.py
+│   │   ├── utils.py
+│   │   ├── verify_rqvae_ckpt.py
+│   │   └── models/
 │   └── verify_results.py
 ├── run_FrqUD.sh
 ├── run_SDUD.sh
 ├── run_SDUD_FrqUD.sh
+├── run_rqvae_beauty.sh
+├── run_rqvae_instruments.sh
+├── run_rqvae_yelp.sh
+├── run_rqvae_all.sh
 └── run_reproduce_table.sh
 ```
 
@@ -160,6 +172,114 @@ RESUME_QUEUE=1 bash run_reproduce_table.sh
 ```
 
 Training logs are written to `logs/<dataset>/`; stdout mirrors are written to `reproduction_logs/`. Model checkpoints are written to `myckpt/<dataset>/`.
+
+## RQ-VAE Pretraining (Stage-2 Checkpoint Reproduction)
+
+This repository also includes the original Stage-2 RQ-VAE pretraining implementation from `scripts/rqvae/`, so the ckpt release can be reproduced from embeddings.
+
+Default hyper-parameters:
+
+- `lr=1e-3`, `weight_decay=1e-4`
+- `epochs=10000`
+- `batch_size`: beauty 1024, instruments 2048, yelp 4096
+- `num_emb_list=[256,256,256]`
+- `layers=[2048,1024,512]`
+- `e_dim=256`, `beta=0.25` (beauty/instruments), `beta=0.5` (yelp)
+- `sk_epsilons=[0.003,0.003,0.003]`, `sk_iters=50`
+- `vq_type=vq`, `loss_type=mse`, `dist=l2`, `kmeans_init=True`
+
+Run one dataset:
+
+```bash
+bash scripts/run_rqvae_beauty.sh
+bash scripts/run_rqvae_instruments.sh
+bash scripts/run_rqvae_yelp.sh
+```
+
+Run all three sequentially:
+
+```bash
+bash scripts/run_rqvae_all.sh
+```
+
+Or if you already have an embedding file for one dataset, jump directly:
+
+```bash
+bash scripts/run_rqvae_from_embedding.sh --embedding /path/to/Beauty.emb-llama.npy
+bash scripts/run_rqvae_from_embedding.sh --embedding /path/to/custom_embedding.npy --dataset beauty
+```
+
+或者直接用一条完整复现脚本（推荐）：
+
+```bash
+bash scripts/reproduce_rqvae_stage2.sh --embedding /path/to/Beauty.emb-llama.npy --dataset beauty
+bash scripts/reproduce_rqvae_stage2.sh --embedding /path/to/custom_embedding.npy --dataset yelp --gpu 0,1
+bash scripts/reproduce_rqvae_stage2.sh --emb-dir /path/to/dataset
+bash scripts/reproduce_rqvae_stage2.sh --all --gpu 0,1
+```
+
+GPU control (important):
+
+```bash
+RQVAE_GPU="0" bash scripts/run_rqvae_from_embedding.sh --embedding ...
+RQVAE_GPU="0,1" bash scripts/run_rqvae_from_all_embeddings.sh
+```
+
+The runner accepts one or two GPU ids and will stop with an error if more than two are requested.
+
+原版实现与路径定位：
+
+- 该仓库用于复现的 `scripts/rqvae/*` 主体与 `main.py/trainer.py/datasets.py/utils.py/models/*` 在逻辑上与
+  `/data/junch/ETEGRec_ONE_Stage/RQVAE/*` 保持同源；`main`、`trainer`、`datasets`、`utils`、`models/rq.py`、`models/layers.py`、`models/rqvae.py`、`models/vq.py` 均已按原实现对齐。
+- 在 `MM_ONE_STAGE_GENREC` 的历史配置里，论文主线三组 ckpt 也主要引用了
+  `/data/junch/ETEGRec_ONE_Stage/RQVAE/rqvae_ckpt/<dataset>_strong_sinkhorn/...`。
+  例如：
+  - `run_beauty_standard_gumbel.sh` / `run_beauty_e2e_adaptive.sh` 中 `RQVAE_INIT` 指向 `.../beauty_strong_sinkhorn/Nov-03-2025_16-13-56/best_collision_model.pth`
+  - `run_instruments_deterministic.sh` 中 `RQVAE_INIT` 指向 `.../instruments_strong_sinkhorn/Dec-04-2025_14-48-43/best_collision_model.pth`
+  - `run_yelp_standard_gumbel.sh` / `run_yelp_adaptive_dynamic_sigma.sh` 中 `RQVAE_INIT` 指向 `.../yelp_strong_sinkhorn/Dec-07-2025_20-22-35/best_collision_model.pth`
+
+复现完成后建议立刻做一键确认（会对比三组ckpt的超参、epoch/collision、以及 strict 模式下的 hash）：
+
+```bash
+python3 scripts/rqvae/compare_rqvae_ckpt.py --ckpt_root ./rqvae_ckpt --baseline_root /data/junch/ETEGRec_ONE_Stage/RQVAE/rqvae_ckpt --expect_hash --strict
+```
+
+Run all three default embeddings from the repo in one go:
+
+```bash
+bash scripts/run_rqvae_from_all_embeddings.sh
+``` 
+
+All runners copy the newest `best_collision_model.pth` to:
+
+```text
+rqvae_ckpt/<dataset>/best_collision_model.pth
+```
+
+Notes on source parity:
+
+- `scripts/rqvae/` in this repo is the core Stage-2 pretraining implementation used for the released checkpoints.
+- The code was cross-checked against `/data/junch/ETEGRec_ONE_Stage/RQVAE` and is aligned with its core Stage-2 files (`main.py`, `trainer.py`, `datasets.py`, `models/{rqvae.py,vq.py,layers.py,utils.py}`).
+- In historical paper runs, `MM_ONE_STAGE_GENREC` typically loads Stage-2 checkpoints from `/data/junch/ETEGRec_ONE_Stage/RQVAE/rqvae_ckpt/<dataset>_strong_sinkhorn/.../best_collision_model.pth`.
+
+If you need to reproduce the same checkpoint lineage from a custom embedding, point `RQVAE_CKPT_ROOT` explicitly:
+
+```bash
+RQVAE_CKPT_ROOT=/your/ckpt/root RQVAE_EPOCHS=20000 \
+  bash scripts/run_rqvae_from_embedding.sh --embedding /path/to/your_llm_embedding.npy --dataset beauty
+```
+
+The script copies the best checkpoint to:
+
+```text
+${RQVAE_CKPT_ROOT}/beauty/best_collision_model.pth
+```
+
+Check that your Stage-2 ckpt metadata matches the released setup:
+
+```bash
+python scripts/rqvae/verify_rqvae_ckpt.py
+```
 
 ## Paper Data
 
