@@ -86,7 +86,7 @@ done
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-echo "Running three-dataset RQ-VAE reproduction (Stage-2)..."
+echo "Running three-dataset RQ-VAE checkpoint reproduction..."
 RQVAE_CKPT_ROOT="${CKPT_ROOT}" "${SCRIPT_DIR}/run_rqvae_from_embedding.sh" --embedding "${BEAUTY_EMB}" --dataset beauty --gpu "${GPU}"
 RQVAE_CKPT_ROOT="${CKPT_ROOT}" "${SCRIPT_DIR}/run_rqvae_from_embedding.sh" --embedding "${INSTR_EMB}" --dataset instruments --gpu "${GPU}"
 RQVAE_CKPT_ROOT="${CKPT_ROOT}" "${SCRIPT_DIR}/run_rqvae_from_embedding.sh" --embedding "${YELP_EMB}" --dataset yelp --gpu "${GPU}"

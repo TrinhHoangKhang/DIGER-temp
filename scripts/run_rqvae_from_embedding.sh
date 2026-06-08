@@ -128,7 +128,7 @@ fi
 PROJECT_ROOT="${RQVAE_PROJECT_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 CKPT_ROOT="${RQVAE_CKPT_ROOT:-${PROJECT_ROOT}/rqvae_ckpt}"
 
-echo "Preparing RQ-VAE Stage-2 reproduction"
+echo "Preparing RQ-VAE checkpoint reproduction"
 echo "Embedding: ${EMB_PATH}"
 echo "Dataset: ${DATASET}"
 echo "GPU: ${GPU}"
@@ -139,4 +139,4 @@ RQVAE_EMBEDDING_PATH="${EMB_PATH}" \
 RQVAE_DATASET_TAG="${DATASET}" \
 bash "${PROJECT_ROOT}/scripts/run_rqvae_pretrain.sh" "${DATASET}"
 
-echo "Done. Canonical Stage-2 checkpoint: ${CKPT_ROOT}/${DATASET}/best_collision_model.pth"
+echo "Done. Canonical RQ-VAE checkpoint: ${CKPT_ROOT}/${DATASET}/best_collision_model.pth"

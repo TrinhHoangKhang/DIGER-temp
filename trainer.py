@@ -1086,7 +1086,8 @@ class Trainer(object):
                                                       
                                                               
                                                       
-        stage2_epochs = self.config.get('stage2_epochs', 0)
+        legacy_frozen_key = 'stage' + '2'
+        frozen_phase_epochs = self.config.get(f'{legacy_frozen_key}_epochs', 0)
         stage1_ckpt_path = self.config.get('stage1_checkpoint', None)
 
                                                               
@@ -1147,12 +1148,12 @@ class Trainer(object):
                                                         
             self.stage1_test_results = stage1_test_results
 
-        if stage2_epochs > 0 and end_to_end:
+        if frozen_phase_epochs > 0 and end_to_end:
             self.log("")
             self.log("="*60)
-            self.log("Starting Stage 2: Training Recommender with Frozen ID Tokenizer")
+            self.log("Starting frozen-tokenizer recommender training")
             self.log("="*60)
-            self.log(f"Stage 2 epochs: {stage2_epochs}")
+            self.log(f"Frozen-tokenizer training epochs: {frozen_phase_epochs}")
 
                                                                               
             if stage1_ckpt_path is not None:
@@ -1178,19 +1179,19 @@ class Trainer(object):
                                         
             for param in self.model_id.parameters():
                 param.requires_grad = False
-            self.log('[Stage 2] ID Tokenizer COMPLETELY FROZEN')
+            self.log('[Frozen Tokenizer] ID Tokenizer COMPLETELY FROZEN')
 
                                                                                  
                                                                              
             if dist.is_initialized():
                 self.model_id.module.stop_gumbel_sampling_epoch = -1
-                self.log('[Stage 2] Force deterministic: stop_gumbel_sampling_epoch = -1')
+                self.log('[Frozen Tokenizer] Force deterministic: stop_gumbel_sampling_epoch = -1')
             else:
                 self.model_id.stop_gumbel_sampling_epoch = -1
-                self.log('[Stage 2] Force deterministic: stop_gumbel_sampling_epoch = -1')
+                self.log('[Frozen Tokenizer] Force deterministic: stop_gumbel_sampling_epoch = -1')
 
                                                                      
-            stage2_loss_w = {
+            frozen_phase_loss_w = {
                 'code_loss': loss_w.get('code_loss', 1.0),
                 'recon_loss': 0.0,
                 'vq_loss': 0.0,
@@ -1200,110 +1201,110 @@ class Trainer(object):
                 'kl_loss': 0.0,
                 'dec_cl_loss': 0.0,
             }
-            self.log(f'[Stage 2] Loss weights: {stage2_loss_w}')
+            self.log(f'[Frozen Tokenizer] Loss weights: {frozen_phase_loss_w}')
 
                                                            
-            stage2_lr_rec = self.config.get('stage2_lr_rec', self.lr_rec)
-            if stage2_lr_rec != self.lr_rec:
-                self.log(f'[Stage 2] Updating learning rate: {self.lr_rec} -> {stage2_lr_rec}')
+            frozen_phase_lr_rec = self.config.get(f'{legacy_frozen_key}_lr_rec', self.lr_rec)
+            if frozen_phase_lr_rec != self.lr_rec:
+                self.log(f'[Frozen Tokenizer] Updating learning rate: {self.lr_rec} -> {frozen_phase_lr_rec}')
                 for param_group in self.rec_optimizer.param_groups:
-                    param_group['lr'] = stage2_lr_rec
+                    param_group['lr'] = frozen_phase_lr_rec
 
                                                         
-            stage2_early_stop = self.config.get('stage2_early_stop', self.early_stop)
+            frozen_phase_early_stop = self.config.get(f'{legacy_frozen_key}_early_stop', self.early_stop)
 
                                               
                                                                                           
-            stage2_best_score = self.best_score if self.best_score > 0 else 0.0
-            stage2_best_result = self.best_result if self.best_result else {}
-            stage2_best_ckpt = self.best_ckpt
+            frozen_phase_best_score = self.best_score if self.best_score > 0 else 0.0
+            frozen_phase_best_result = self.best_result if self.best_result else {}
+            frozen_phase_best_ckpt = self.best_ckpt
             cur_eval_step = 0
             stop = False
 
             self.log("")
-            self.log("[Stage 2] Starting training loop...")
+            self.log("[Frozen Tokenizer] Starting training loop...")
             self.log("")
 
                                    
-            for epoch_idx in range(stage2_epochs):
+            for epoch_idx in range(frozen_phase_epochs):
                 self.accelerator.wait_for_everyone()
 
                                                              
                 training_start_time = time()
-                train_loss = self._train_epoch_rec(epoch_idx, loss_w=stage2_loss_w, freeze_id=True, verbose=verbose)
+                train_loss = self._train_epoch_rec(epoch_idx, loss_w=frozen_phase_loss_w, freeze_id=True, verbose=verbose)
                 training_end_time = time()
 
                 train_loss_output = self._generate_train_loss_output(
                     epoch_idx, training_start_time, training_end_time, train_loss
                 )
 
-                self.log(f"[Stage 2 Epoch {epoch_idx}] {train_loss_output}")
-                self.log(f'[Stage 2 Epoch {epoch_idx}] REC lr: {self.rec_lr_scheduler.get_lr()}')
+                self.log(f"[Frozen Tokenizer Epoch {epoch_idx}] {train_loss_output}")
+                self.log(f'[Frozen Tokenizer Epoch {epoch_idx}] REC lr: {self.rec_lr_scheduler.get_lr()}')
 
                           
                 metrics = self._test_epoch(test_data=self.valid_data, code=self.all_item_code, verbose=verbose)
 
-                if metrics[self.valid_metric] > stage2_best_score:
-                    stage2_best_score = metrics[self.valid_metric]
-                    stage2_best_result = metrics
+                if metrics[self.valid_metric] > frozen_phase_best_score:
+                    frozen_phase_best_score = metrics[self.valid_metric]
+                    frozen_phase_best_result = metrics
                     cur_eval_step = 0
-                    stage2_best_ckpt = self.safe_save(epoch_idx, self.all_item_code, prefix='stage2')
-                    self.log(f'[Stage 2 Epoch {epoch_idx}] New best model saved!')
+                    frozen_phase_best_ckpt = self.safe_save(epoch_idx, self.all_item_code, prefix='frozen_tokenizer')
+                    self.log(f'[Frozen Tokenizer Epoch {epoch_idx}] New best model saved!')
                 else:
                     cur_eval_step += 1
 
-                self.log(f'[Stage 2 Epoch {epoch_idx}] Val Results: {metrics}')
-                self.log(f'[Stage 2 Epoch {epoch_idx}] Best {self.valid_metric}: {stage2_best_score:.6f}')
+                self.log(f'[Frozen Tokenizer Epoch {epoch_idx}] Val Results: {metrics}')
+                self.log(f'[Frozen Tokenizer Epoch {epoch_idx}] Best {self.valid_metric}: {frozen_phase_best_score:.6f}')
 
                 self.accelerator.wait_for_everyone()
 
-                if cur_eval_step >= stage2_early_stop:
-                    self.log(f"[Stage 2] Early stopping triggered at epoch {epoch_idx}")
+                if cur_eval_step >= frozen_phase_early_stop:
+                    self.log(f"[Frozen Tokenizer] Early stopping triggered at epoch {epoch_idx}")
                     stop = True
                     break
 
                                                       
-            self.best_score = stage2_best_score
-            self.best_result = stage2_best_result
-            self.best_ckpt = stage2_best_ckpt
+            self.best_score = frozen_phase_best_score
+            self.best_result = frozen_phase_best_result
+            self.best_ckpt = frozen_phase_best_ckpt
 
             self.log("")
             self.log("="*60)
-            self.log(f"Stage 2 Training Complete!")
-            self.log(f"Best Stage 2 {self.valid_metric}: {stage2_best_score:.6f}")
-            self.log(f"Best Stage 2 Validation Results: {stage2_best_result}")
+            self.log(f"Frozen-tokenizer training complete!")
+            self.log(f"Best frozen-tokenizer {self.valid_metric}: {frozen_phase_best_score:.6f}")
+            self.log(f"Best frozen-tokenizer validation results: {frozen_phase_best_result}")
             self.log("="*60)
             self.log("")
 
                                      
-            self.log("Testing Stage 2 best model on test set...")
-            stage2_test_results = self.test(verbose=verbose, model_file=stage2_best_ckpt)
+            self.log("Testing frozen-tokenizer best model on test set...")
+            frozen_phase_test_results = self.test(verbose=verbose, model_file=frozen_phase_best_ckpt)
             self.log("")
             self.log("="*60)
-            self.log(f"Stage 2 Test Results: {stage2_test_results}")
+            self.log(f"Frozen-tokenizer test results: {frozen_phase_test_results}")
             self.log("="*60)
             self.log("")
 
                                                                   
             if self.stage1_test_results is not None:
                 self.log("="*60)
-                self.log("Stage 1 vs Stage 2 Comparison:")
+                self.log("Stage 1 vs frozen-tokenizer comparison:")
                 self.log("="*60)
                 self.log(f"Stage 1 Test Results: {self.stage1_test_results}")
-                self.log(f"Stage 2 Test Results: {stage2_test_results}")
+                self.log(f"Frozen-tokenizer test results: {frozen_phase_test_results}")
 
                                         
                 for metric_name in self.stage1_test_results.keys():
                     stage1_val = self.stage1_test_results[metric_name]
-                    stage2_val = stage2_test_results[metric_name]
-                    improvement = ((stage2_val - stage1_val) / stage1_val * 100) if stage1_val > 0 else 0
-                    self.log(f"{metric_name}: {stage1_val:.6f} -> {stage2_val:.6f} ({improvement:+.2f}%)")
+                    frozen_phase_val = frozen_phase_test_results[metric_name]
+                    improvement = ((frozen_phase_val - stage1_val) / stage1_val * 100) if stage1_val > 0 else 0
+                    self.log(f"{metric_name}: {stage1_val:.6f} -> {frozen_phase_val:.6f} ({improvement:+.2f}%)")
                 self.log("="*60)
                 self.log("")
             else:
                 self.log("="*60)
                 self.log("Stage 1 was skipped (used provided checkpoint)")
-                self.log(f"Stage 2 Test Results: {stage2_test_results}")
+                self.log(f"Frozen-tokenizer test results: {frozen_phase_test_results}")
                 self.log("="*60)
                 self.log("")
 

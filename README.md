@@ -173,10 +173,10 @@ RESUME_QUEUE=1 bash run_reproduce_table.sh
 
 Training logs are written to `logs/<dataset>/`; stdout mirrors are written to `reproduction_logs/`. Model checkpoints are written to `myckpt/<dataset>/`.
 
-## RQ-VAE Pretraining (Stage-2 Checkpoint Training)
+## RQ-VAE Checkpoint Training
 
-This repository also includes the original Stage-2 RQ-VAE pretraining implementation from `scripts/rqvae/`.  
-You can train the Stage-2 checkpoint directly from embeddings.
+This repository also includes the RQ-VAE pretraining implementation from `scripts/rqvae/`.  
+You can train the released RQ-VAE checkpoints directly from embeddings.
 
 Default hyper-parameters:
 
@@ -212,13 +212,13 @@ bash scripts/run_rqvae_from_embedding.sh --embedding /path/to/custom_embedding.n
 
 LLaMA embeddings referenced here should be generated following the instructions in [honghuibao2000/letter](https://github.com/honghuibao2000/letter).
 
-You can also use a unified Stage-2 training wrapper (recommended):
+You can also use a unified RQ-VAE training wrapper (recommended):
 
 ```bash
-bash scripts/reproduce_rqvae_stage2.sh --embedding /path/to/Beauty.emb-llama.npy --dataset beauty
-bash scripts/reproduce_rqvae_stage2.sh --embedding /path/to/custom_embedding.npy --dataset yelp --gpu 0,1
-bash scripts/reproduce_rqvae_stage2.sh --emb-dir /path/to/dataset
-bash scripts/reproduce_rqvae_stage2.sh --all --gpu 0,1
+bash scripts/reproduce_rqvae.sh --embedding /path/to/Beauty.emb-llama.npy --dataset beauty
+bash scripts/reproduce_rqvae.sh --embedding /path/to/custom_embedding.npy --dataset yelp --gpu 0,1
+bash scripts/reproduce_rqvae.sh --emb-dir /path/to/dataset
+bash scripts/reproduce_rqvae.sh --all --gpu 0,1
 ```
 
 GPU control (important):
@@ -232,7 +232,7 @@ The runner accepts one or two GPU ids and will stop with an error if more than t
 
 Notes:
 
-- Stage-2 implementation files in this repository are kept in `scripts/rqvae/` and include `main.py`, `trainer.py`, `datasets.py`, `utils.py`, and `models/{rq.py,layers.py,rqvae.py,vq.py}`.
+- RQ-VAE implementation files in this repository are kept in `scripts/rqvae/` and include `main.py`, `trainer.py`, `datasets.py`, `utils.py`, and `models/{rq.py,layers.py,rqvae.py,vq.py}`.
 - Use this section as a public training workflow. If you need to compare against your own baseline checkpoints, set `--baseline_root` and `--ckpt_root` to your local paths.
 
 After training, run optional verification (for configuration, collision, and epoch consistency):
@@ -255,8 +255,8 @@ rqvae_ckpt/<dataset>/best_collision_model.pth
 
 Checkpoint lineage:
 
-- `scripts/rqvae/` in this repo is the core Stage-2 pretraining implementation used for this release.
-- The code is aligned with the corresponding Stage-2 implementation in the original project.
+- `scripts/rqvae/` in this repo is the core RQ-VAE pretraining implementation used for this release.
+- The code is aligned with the corresponding RQ-VAE implementation in the original project.
 
 If you want to train under a custom output directory from a custom embedding, set `RQVAE_CKPT_ROOT` explicitly:
 
@@ -271,7 +271,7 @@ The script copies the best checkpoint to:
 ${RQVAE_CKPT_ROOT}/beauty/best_collision_model.pth
 ```
 
-Check that your Stage-2 ckpt metadata matches the released setup:
+Check that your RQ-VAE checkpoint metadata matches the released setup:
 
 ```bash
 python scripts/rqvae/verify_rqvae_ckpt.py

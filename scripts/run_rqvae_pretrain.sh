@@ -102,7 +102,7 @@ RUN_LOG_DIR="${PROJECT_ROOT}/reproduction_logs/rqvae"
 mkdir -p "${RUN_LOG_DIR}"
 
 RUN_LOG="${RUN_LOG_DIR}/${DATASET}_$(date +%Y%m%d_%H%M%S).log"
-echo "Stage-2 RQ-VAE reconstruction run"
+echo "RQ-VAE checkpoint training run"
 echo "Dataset: ${DATASET}"
 echo "Embedding: ${EMB_PATH}"
 echo "Output parent: ${OUTPUT_PARENT}"

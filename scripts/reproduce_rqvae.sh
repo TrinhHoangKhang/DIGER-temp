@@ -4,9 +4,9 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  bash scripts/reproduce_rqvae_stage2.sh [--embedding /path/to/custom_emb.npy --dataset beauty|instruments|yelp]
-  bash scripts/reproduce_rqvae_stage2.sh --emb-dir /path/to/dataset
-  bash scripts/reproduce_rqvae_stage2.sh --all
+  bash scripts/reproduce_rqvae.sh [--embedding /path/to/custom_emb.npy --dataset beauty|instruments|yelp]
+  bash scripts/reproduce_rqvae.sh --emb-dir /path/to/dataset
+  bash scripts/reproduce_rqvae.sh --all
 
 Options:
   --embedding    Path to LLM embedding for a single dataset.
@@ -22,9 +22,9 @@ Options:
   --no-verify    Skip verification step after reproduction.
 
 Examples:
-  bash scripts/reproduce_rqvae_stage2.sh --embedding ./dataset/beauty/Beauty.emb-llama.npy --dataset beauty
-  bash scripts/reproduce_rqvae_stage2.sh --embedding /path/to/llm_embedding.npy --dataset yelp --gpu 0,1
-  bash scripts/reproduce_rqvae_stage2.sh --all --gpu 0
+  bash scripts/reproduce_rqvae.sh --embedding ./dataset/beauty/Beauty.emb-llama.npy --dataset beauty
+  bash scripts/reproduce_rqvae.sh --embedding /path/to/llm_embedding.npy --dataset yelp --gpu 0,1
+  bash scripts/reproduce_rqvae.sh --all --gpu 0
 EOF
 }
 
@@ -254,4 +254,4 @@ fi
 
 echo "[Step] Verify reproduced checkpoint parity with original"
 python3 "${PROJECT_ROOT}/scripts/rqvae/compare_rqvae_ckpt.py" "${VERIFY_ARGS[@]}"
-echo "[DONE] RQ-VAE stage-2 reproduction run finished."
+echo "[DONE] RQ-VAE checkpoint reproduction run finished."
