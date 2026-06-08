@@ -1,29 +1,39 @@
 # DIGER: Differentiable Semantic ID for Generative Recommendation
 
-This work has been **accepted as a full paper** at **SIGIR 2026**.
+**SIGIR 2026 full paper.** DIGER learns differentiable semantic IDs for generative recommendation, allowing item identifiers to be optimized jointly with the recommendation model.
 
 ![SID](https://img.shields.io/badge/Task-SID-red)
 ![Generative recommendation](https://img.shields.io/badge/Task-Generative--recommendation-red)
 <a href="https://arxiv.org/abs/2601.19711" alt="arXiv"><img src="https://img.shields.io/badge/arXiv-2601.19711-FAA41F.svg?style=flat" /></a>
 <a href="https://mp.weixin.qq.com/s/Cs2kwRR0U94GyT5h7hkldg" alt="Chinese blog"><img src="https://img.shields.io/badge/blog-新智元-orange.svg?style=flat" /></a>
 
-<img src="assets/figure1.png" alt="Figure 1: Conventional vs. differentiable SID in generative recommendation" width="80%" />
+<p align="center">
+  <img src="assets/figure1.png" alt="Conventional versus differentiable semantic IDs in generative recommendation" width="80%" />
+</p>
 
-*Figure 1. Conventional pipeline (a) freezes RQ-VAE semantic IDs, while differentiable semantic IDs (b) enable joint optimization for recommendation (Paper Figure 1).*
+*Conventional pipelines freeze RQ-VAE semantic IDs, while DIGER makes semantic IDs differentiable and optimizes them together with the recommendation model.*
 
-<img src="assets/figure3.png" alt="Figure 3: DIGER framework compared with STE" width="80%" />
+<p align="center">
+  <img src="assets/figure3.png" alt="DIGER framework compared with straight-through estimation" width="80%" />
+</p>
 
-*Figure 3. DIGER framework compared with STE. DRIL adds stochastic exploration with Gumbel noise and uncertainty decay enables a stable exploration-exploitation transition (Paper Figure 3).*
+*DIGER uses stochastic exploration with Gumbel noise and uncertainty decay to support a stable exploration-to-exploitation transition.*
 
 ## Overview
 
-DIGER studies differentiable semantic IDs for generative recommendation. This release contains the code, processed data, semantic embeddings, and RQ-VAE checkpoints needed to reproduce the paper rows for:
+This repository contains the code, processed data, semantic embeddings, and RQ-VAE checkpoints needed to reproduce the released DIGER results for:
 
 - **FrqUD**: frequency-based uncertainty decay.
 - **SDUD**: standard-deviation uncertainty decay.
 - **SDUD+FrqUD**: the combined setting.
 
 The released scripts cover all three datasets used in the table: Beauty, Instruments, and Yelp.
+
+## Release Artifacts
+
+- Code: this repository.
+- Processed data and embeddings: [junchenfu/diger-processed-data](https://huggingface.co/datasets/junchenfu/diger-processed-data).
+- RQ-VAE checkpoints: [Beauty](https://huggingface.co/junchenfu/diger-rqvae-beauty), [Instruments](https://huggingface.co/junchenfu/diger-rqvae-instruments), and [Yelp](https://huggingface.co/junchenfu/diger-rqvae-yelp).
 
 ## Repository Structure
 
@@ -69,7 +79,7 @@ DIGER/
 └── run_reproduce_table.sh
 ```
 
-Large release artifacts, including checkpoints, embeddings, and JSONL splits, are tracked with Git LFS.
+Large local artifacts, including checkpoints, embeddings, and JSONL splits, are tracked with Git LFS. They are also available from the Hugging Face links above.
 
 ## Requirements
 
@@ -87,13 +97,13 @@ Reference environment used for the released paper logs:
 - Accelerate 1.10.1
 - NumPy 2.3.1
 
-Using newer major versions can change initialization and dropout RNG streams. A quick sanity check for the paper environment is the first Yelp SDUD+FrqUD training line:
+Using newer major versions can change initialization and dropout RNG streams. One quick environment sanity check is the first Yelp SDUD+FrqUD training line:
 
 ```text
 [Simple Uncertainty] sigma=2.0000, Loss=5.4814
 ```
 
-If this line is closer to `Loss=5.5120`, the code and artifacts are likely correct but the active Python environment is not the paper environment.
+If this line is closer to `Loss=5.5120`, the code and artifacts are likely correct, but the active Python environment may differ from the reference environment.
 
 After cloning the repository, pull the LFS files:
 
