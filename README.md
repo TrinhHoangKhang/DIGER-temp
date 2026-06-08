@@ -5,7 +5,7 @@ This work has been **accepted as a full paper** at **SIGIR 2026**.
 ![SID](https://img.shields.io/badge/Task-SID-red)
 ![Generative recommendation](https://img.shields.io/badge/Task-Generative--recommendation-red)
 <a href="https://arxiv.org/abs/2601.19711" alt="arXiv"><img src="https://img.shields.io/badge/arXiv-2601.19711-FAA41F.svg?style=flat" /></a>
-<a href="https://mp.weixin.qq.com/s/Cs2kwRR0U94GyT5h7hkldg" alt="Chinese blog"><img src="https://img.shields.io/badge/blog-Xinzhiyuan-orange.svg?style=flat" /></a>
+<a href="https://mp.weixin.qq.com/s/Cs2kwRR0U94GyT5h7hkldg" alt="Chinese blog"><img src="https://img.shields.io/badge/blog-新智元-orange.svg?style=flat" /></a>
 
 <img src="assets/figure1.png" alt="Figure 1: Conventional vs. differentiable SID in generative recommendation" width="80%" />
 
