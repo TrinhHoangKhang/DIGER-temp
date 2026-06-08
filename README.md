@@ -210,6 +210,8 @@ bash scripts/run_rqvae_from_embedding.sh --embedding /path/to/Beauty.emb-llama.n
 bash scripts/run_rqvae_from_embedding.sh --embedding /path/to/custom_embedding.npy --dataset beauty
 ```
 
+LLaMA embeddings referenced here should be generated following the instructions in [honghuibao2000/letter](https://github.com/honghuibao2000/letter).
+
 You can also use a unified Stage-2 training wrapper (recommended):
 
 ```bash
